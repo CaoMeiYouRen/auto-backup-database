@@ -20,9 +20,9 @@
 - [x] 集成 `push-all-in-one` 实现备份状态通知
 
 ## 阶段 4: 调度与 CLI
-- [ ] 使用 `zx` 编写核心入口脚本
-- [ ] 实现基于 `cron` 的定时任务调度
-- [ ] 优化日志输出与错误捕获
+- [x] 创建 `BackupService` 核心服务（整合数据库备份、压缩、加密、存储、通知）
+- [x] 实现基于 `cron` 的定时任务调度 (`SchedulerService`)
+- [x] 编写 CLI 入口脚本 (`src/cli.ts`)
 
 ## 阶段 5: 部署与测试
 - [ ] 编写 `Dockerfile`

@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown'
 
 export default defineConfig({
     platform: 'node', // 目标平台
-    entry: ['src/index.ts'],
+    entry: ['src/index.ts', 'src/cli.ts'], // 入口文件
     outDir: 'dist', // 输出目录
     format: ['cjs', 'esm'],
     fixedExtension: true, // 保持输出文件的扩展名一致
