@@ -32,6 +32,7 @@
     "include": [
         "src/*.ts",
         "src/**/*.ts",
+        "scripts/**/*.mjs",
         "*.config.*",
         "tests/*.ts",
         "tests/**/*.ts"
