@@ -1,6 +1,9 @@
 <h1 align="center">auto-backup-database</h1>
 <p>
   <img alt="Version" src="https://img.shields.io/github/package-json/v/CaoMeiYouRen/auto-backup-database.svg" />
+  <a href="https://hub.docker.com/r/caomeiyouren/auto-backup-database" target="_blank">
+    <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/caomeiyouren/auto-backup-database">
+  </a>
   <a href="https://github.com/CaoMeiYouRen/auto-backup-database/actions?query=workflow%3ARelease" target="_blank">
     <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/CaoMeiYouRen/auto-backup-database/release.yml?branch=master">
   </a>
