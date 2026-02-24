@@ -26,3 +26,15 @@ export type { CompressResult } from './utils/compress'
 // 加密工具
 export { encryptFile, decryptFile, encryptAndDelete, checkOpenSSL } from './utils/encrypt'
 export type { EncryptResult, DecryptResult } from './utils/encrypt'
+
+// 本地存储
+export { LocalStorage } from './storage/local'
+export type { BackupFileInfo, CleanupResult, StorageStats } from './storage/local'
+
+// OSS 存储
+export { OSSStorage } from './storage/oss'
+export type { OSSFileInfo, UploadResult, OSSCleanupResult } from './storage/oss'
+
+// 通知服务
+export { NotifyService, createNotifyService } from './notify'
+export type { NotifyEventType, NotifyConfig, NotifyResult } from './notify'
