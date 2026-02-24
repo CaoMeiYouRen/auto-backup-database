@@ -45,7 +45,8 @@ RUN mkdir -p /app/backups /app/data /app/config
 # 默认设置配置路径
 ENV CONFIG_PATH=/app/config/config.yml
 ENV ENV_PATH=/app/config/.env
+ENV BACKUP_OUTPUT=/app/backups
 
 # 指定启动程序入口
 ENTRYPOINT ["node", "dist/cli.mjs"]
-CMD ["-c", "/app/config/config.yml", "-e", "/app/config/.env", "-o", "/app/backups"]
+CMD ["-m", "schedule"]

@@ -11,6 +11,7 @@ services:
       # 配置文件和环境变量路径优先级最高，可以在这里指定
       - CONFIG_PATH=/app/config/config.yml
       - ENV_PATH=/app/config/.env
+      - BACKUP_OUTPUT=/app/backups
     volumes:
       # 配置文件目录
       - ./config:/app/config:ro

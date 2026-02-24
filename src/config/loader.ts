@@ -16,8 +16,8 @@ export class ConfigLoader {
     private envPath: string
 
     constructor(configPath?: string, envPath?: string) {
-        this.configPath = resolve(configPath || DEFAULT_CONFIG_PATH)
-        this.envPath = resolve(envPath || DEFAULT_ENV_PATH)
+        this.configPath = resolve(configPath || process.env.CONFIG_PATH || DEFAULT_CONFIG_PATH)
+        this.envPath = resolve(envPath || process.env.ENV_PATH || DEFAULT_ENV_PATH)
     }
 
     /**

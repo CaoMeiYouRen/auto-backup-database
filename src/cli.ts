@@ -121,8 +121,8 @@ async function main(): Promise<void> {
         const config = loadConfig(options.config, options.env)
         debug('配置加载完成，项目数: %d', config.app.projects.length)
 
-        // 设置默认目录
-        const localBackupDir = resolve(options.output || './backups')
+        // 设置默认目录，优先级：CLI 参数 > 环境变量 > 默认值
+        const localBackupDir = resolve(options.output || process.env.BACKUP_OUTPUT || './backups')
         const tempDir = resolve('./.temp/backups')
 
         // 确保目录存在
