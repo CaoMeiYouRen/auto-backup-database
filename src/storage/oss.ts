@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/client-s3'
 import { parse } from 'better-bytes'
 import dayjs from 'dayjs'
+import { getMimeType } from '@/utils/file'
 import type { OSSConfig, RetentionConfig } from '@/types/config'
 
 /**
@@ -95,6 +96,7 @@ export class OSSStorage {
                     Key: fileName,
                     Body: fileContent,
                     ContentLength: stats.size,
+                    ContentType: getMimeType(fileName),
                     // 设置为私有权限
                     ACL: 'private',
                 }),

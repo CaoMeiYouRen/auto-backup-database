@@ -19,6 +19,9 @@ export { DatabaseProvider } from './providers/database'
 export type { BackupResult } from './providers/database'
 export { SQLiteProvider } from './providers/sqlite'
 
+// 文件工具
+export { getMimeType } from './utils/file'
+
 // 压缩工具
 export { compress, compressMultiple, compressDirectory } from './utils/compress'
 export type { CompressResult } from './utils/compress'
