@@ -12,9 +12,6 @@ export default defineConfig({
     clean: true,
     dts: true,
     minify: false, // 缩小输出
+    inlineOnly: false,
     shims: true, // 注入 cjs 和 esm 填充代码，解决 import.meta.url 和 __dirname 的兼容问题
-    // exports: true, // 自动生成包导出
-    // splitting: false, // 代码拆分
-    // external: [], // 排除的依赖项
-    // noExternal: [/(.*)/], // 将依赖打包到一个文件中
 })
