@@ -38,6 +38,9 @@ importers:
       fs-extra:
         specifier: ^11.3.3
         version: 11.3.3
+      glob:
+        specifier: ^11.1.0
+        version: 11.1.0
       lodash-es:
         specifier: ^4.17.23
         version: 4.17.23
@@ -2369,7 +2372,6 @@ packages:
   glob@11.1.0:
     resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
-    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   global-directory@4.0.1:

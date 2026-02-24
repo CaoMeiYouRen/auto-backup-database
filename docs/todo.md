@@ -7,10 +7,10 @@
 - [x] 实现配置加载逻辑 (YAML 解析与 `.env` 加载)
 
 ## 阶段 2: 数据库备份核心
-- [ ] 定义 `DatabaseProvider` 抽象接口
-- [ ] 实现 `SQLiteProvider` (支持 Glob 匹配)
-- [ ] 实现备份文件的压缩功能 (`tar` 或 `zip`)
-- [ ] 实现备份文件的加密功能 (可选密码保护)
+- [x] 定义 `DatabaseProvider` 抽象接口
+- [x] 实现 `SQLiteProvider` (支持 Glob 匹配)
+- [x] 实现备份文件的压缩功能 (`tar.gz`)
+- [x] 实现备份文件的加密功能 (可选密码保护)
 
 ## 阶段 3: 存储与生命周期管理
 - [ ] 实现本地存储管理（使用 `better-bytes` 处理 `maxSize`，按日期和大小清理旧备份）
