@@ -202,7 +202,15 @@ src/
   <img src="https://oss.cmyr.dev/images/202306192324870.png" width="312px" height="78px" alt="在爱发电支持我">
 </a>
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=CaoMeiYouRen/auto-backup-database&type=Date)](https://star-history.com/#CaoMeiYouRen/auto-backup-database&Date)
+
+
 ## License
 
 Copyright © 2026 [CaoMeiYouRen](https://github.com/CaoMeiYouRen).<br />
 This project is [MIT](https://github.com/CaoMeiYouRen/auto-backup-database/blob/master/LICENSE) licensed.
+
+***
+_This README was generated with ❤️ by [cmyr-template-cli](https://github.com/CaoMeiYouRen/cmyr-template-cli)_
