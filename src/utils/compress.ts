@@ -1,5 +1,6 @@
 import { basename, dirname } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { $ } from 'zx'
 
 $.verbose = false
@@ -199,12 +200,10 @@ export async function compressDirectory(
  */
 async function getFileSize(filePath: string): Promise<number> {
     try {
-        const { stdout } = await $`stat -c %s ${filePath}`
-        return parseInt(stdout.trim(), 10)
+        const stats = await stat(filePath)
+        return stats.size
     } catch {
-        // Windows 兼容
-        const { stdout } = await $`powershell -command "(Get-Item '${filePath}').length"`
-        return parseInt(stdout.trim(), 10)
+        return 0
     }
 }
 
@@ -212,13 +211,25 @@ async function getFileSize(filePath: string): Promise<number> {
  * 获取目录大小
  */
 async function getDirectorySize(dirPath: string): Promise<number> {
+    let size = 0
+
+    function walkSync(currentPath: string) {
+        const stats = statSync(currentPath)
+        if (stats.isFile()) {
+            size += stats.size
+        } else if (stats.isDirectory()) {
+            const files = readdirSync(currentPath)
+            for (const file of files) {
+                const filePath = `${currentPath}/${file}`
+                walkSync(filePath)
+            }
+        }
+    }
+
     try {
-        const { stdout } = await $`du -sb ${dirPath} | cut -f1`
-        return parseInt(stdout.trim(), 10)
+        walkSync(dirPath)
+        return size
     } catch {
-        // Windows 兼容
-        const { stdout } =
-            await $`powershell -command "(Get-ChildItem -Recurse '${dirPath}' | Measure-Object -Property Length -Sum).Sum"`
-        return parseInt(stdout.trim(), 10) || 0
+        return 0
     }
 }

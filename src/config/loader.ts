@@ -1,8 +1,7 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parse } from 'yaml'
 import { config as loadDotenv } from 'dotenv'
-import { readFileSync } from 'fs-extra'
 import type { AppConfig, EnvConfig, FullConfig, OSSConfig } from '@/types/config'
 
 const DEFAULT_CONFIG_PATH = 'config.yml'

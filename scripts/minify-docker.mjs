@@ -6,28 +6,7 @@ const __dirname = import.meta.dirname
 
 const projectRoot = path.resolve(process.env.PROJECT_ROOT || path.join(__dirname, '../..'))
 const resultFolder = path.join(projectRoot, 'app-minimal') // no need to resolve, ProjectRoot is always absolute
-const pkg = await fs.readJSON(path.join(projectRoot, 'package.json'))
-
-let mainPath = ''
-// 支持多种可能的入口点
-const mainPaths = [pkg.main, 'dist/cli.cjs', 'dist/cli.mjs', 'dist/index.cjs', 'dist/index.mjs']
-for (const key of mainPaths) {
-    if (!key) {
-        continue
-    }
-    const fullPath = path.join(projectRoot, key)
-    if (await fs.pathExists(fullPath)) {
-        mainPath = fullPath
-        break
-    }
-}
-if (!mainPath) {
-    console.error('Could not find entry point in:', mainPaths)
-    process.exit(1)
-}
-
-console.log('Start analyzing, entry point:', mainPath, 'project root:', projectRoot)
-const files = [mainPath]
+const files = ['dist/index.mjs', 'dist/cli.mjs']
 const { fileList: fileSet } = await nodeFileTrace(files, {
     base: projectRoot,
 })
