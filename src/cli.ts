@@ -131,7 +131,10 @@ async function main(): Promise<void> {
 
         // 创建通知服务（如果配置了）
         let notifyService: NotifyService | undefined
-        // TODO: 从配置中读取通知配置
+        if (config.app.notify?.enabled) {
+            notifyService = new NotifyService(config.app.notify)
+            debug('通知服务已启用: %s', config.app.notify.type)
+        }
 
         if (options.mode === 'once') {
             // 单次执行模式

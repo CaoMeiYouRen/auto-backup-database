@@ -60,6 +60,13 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: true
+
+notify:
+  enabled: true
+  type: Dingtalk # 对应 push-all-in-one 的推送类型
+  config:
+    DINGTALK_ACCESS_TOKEN: your-token
+    DINGTALK_SECRET: your-secret
 ```
 
 ### 4.2 环境变量 (.env)

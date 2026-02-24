@@ -19,3 +19,10 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: true
+# 通知配置（可选）
+notify:
+  enabled: true
+  type: Dingtalk # 支持多种推送方式，详见 push-all-in-one
+  config:
+    DINGTALK_ACCESS_TOKEN: your-token
+    DINGTALK_SECRET: your-secret

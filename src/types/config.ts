@@ -1,3 +1,5 @@
+import type { NotifyConfig } from '@/notify'
+
 /**
  * 数据库类型
  */
@@ -62,6 +64,8 @@ export interface ProjectConfig {
 export interface AppConfig {
     /** 项目列表 */
     projects: ProjectConfig[]
+    /** 通知配置 */
+    notify?: NotifyConfig
 }
 
 /**
