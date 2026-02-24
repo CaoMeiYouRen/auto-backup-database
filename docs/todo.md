@@ -25,10 +25,10 @@
 - [x] 编写 CLI 入口脚本 (`src/cli.ts`)
 
 ## 阶段 5: 部署与测试
-- [ ] 编写 `Dockerfile`
-- [ ] 编写 `docker-compose.yml` 示例
-- [ ] 编写单元测试与集成测试
-- [ ] 完善 `README.md` 使用手册
+- [x] 编写 `Dockerfile`
+- [x] 编写 `docker-compose.yml` 示例
+- [x] 编写单元测试 (`tests/config.test.ts`, `tests/storage.test.ts`)
+- [x] 完善 `README.md` 使用手册
 
 ## 阶段 6: 扩展 (待定)
 - [ ] 添加 MySQL 支持

@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  auto-backup-database:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: auto-backup-database:latest
+    container_name: auto-backup-database
+    restart: unless-stopped
+    volumes:
+      # 配置文件
+      - ./config:/app/config:ro
+      # 本地备份输出目录
+      - ./backups:/app/backups
+      # 需要备份的数据库目录（根据实际情况修改）
+      - /path/to/your/databases:/app/data:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - NODE_ENV=production
+    # 如果需要覆盖默认命令
+    # command: ["-c", "/app/config/config.yml", "-e", "/app/config/.env", "-o", "/app/backups", "-m", "schedule"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('healthy')"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 10s

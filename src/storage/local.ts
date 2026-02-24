@@ -92,7 +92,8 @@ export class LocalStorage {
                     path: filePath,
                     name: file,
                     size: stats.size,
-                    createdAt: stats.birthtime,
+                    // 使用 birthtime，如果不可用则使用 mtime
+                    createdAt: stats.birthtime || stats.mtime,
                 })
             }
         }
@@ -117,7 +118,8 @@ export class LocalStorage {
                     path: filePath,
                     name: file,
                     size: stats.size,
-                    createdAt: stats.birthtime,
+                    // 使用 birthtime，如果不可用则使用 mtime
+                    createdAt: stats.birthtime || stats.mtime,
                 })
             }
         }

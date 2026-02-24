@@ -32,7 +32,9 @@
     "include": [
         "src/*.ts",
         "src/**/*.ts",
-        "*.config.*"
+        "*.config.*",
+        "tests/*.ts",
+        "tests/**/*.ts"
     ],
     "exclude": [
         "node_modules",
