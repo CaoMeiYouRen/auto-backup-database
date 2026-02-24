@@ -1,5 +1,5 @@
-import { join } from 'node:path'
-import { rm } from 'node:fs/promises'
+import { join, basename } from 'node:path'
+import { rm, copyFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import Debug from 'debug'
 import type { ProjectConfig, EnvConfig } from '@/types/config'
@@ -243,9 +243,6 @@ export class BackupService {
 
             // 这里需要将压缩文件移动到本地存储目录
             // 由于 LocalStorage 主要管理目录，我们直接复制文件
-            const { copyFile, mkdir } = await import('node:fs/promises')
-            const { basename } = await import('node:path')
-
             const destDir = join(localBackupDir, project.name)
             if (!existsSync(destDir)) {
                 await mkdir(destDir, { recursive: true })
