@@ -24,6 +24,7 @@ pnpm run start:tsx     # 使用 tsx 直接运行源码
 pnpm run lint          # ESLint 检查并自动修复
 pnpm run test          # 运行 vitest 测试
 pnpm run test:coverage # 运行测试并生成覆盖率报告
+pnpm run typecheck     # 进行 TypeScript 类型检查
 
 # Git
 pnpm run commit        # 使用 commitizen 交互式提交
