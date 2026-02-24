@@ -1,5 +1,19 @@
 # auto-backup-database
 
+# [1.1.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.0.0...v1.1.0) (2026-02-24)
+
+
+### ✨ 新功能
+
+* 优化备份服务的加密逻辑，增强错误处理和日志记录 ([d3bde9d](https://github.com/CaoMeiYouRen/auto-backup-database/commit/d3bde9d))
+* 添加文件工具以获取 MIME 类型并在 OSS 存储中使用 ([30e579e](https://github.com/CaoMeiYouRen/auto-backup-database/commit/30e579e))
+
+
+### 📦 代码重构
+
+* 优化备份服务，移除不必要的动态导入 ([0aa8303](https://github.com/CaoMeiYouRen/auto-backup-database/commit/0aa8303))
+* 优化配置加载器和压缩功能，简化文件路径处理 ([a70b6e3](https://github.com/CaoMeiYouRen/auto-backup-database/commit/a70b6e3))
+
 # 1.0.0 (2026-02-24)
 
 
