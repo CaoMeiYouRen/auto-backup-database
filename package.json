@@ -77,9 +77,9 @@
     "backup",
     "database",
     "sqlite",
-    "my-sql",
-    "postgre-sql",
-    "mongo-db",
+    "mysql",
+    "postgresql",
+    "mongodb",
     "typescript"
   ],
   "homepage": "https://github.com/CaoMeiYouRen/auto-backup-database#readme",
