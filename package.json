@@ -1,6 +1,6 @@
 {
   "name": "auto-backup-database",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "服务器数据库自动备份方案，支持本地备份和异地备份",
   "author": "CaoMeiYouRen",
   "private": true,

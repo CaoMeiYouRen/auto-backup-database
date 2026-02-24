@@ -1,5 +1,12 @@
 # auto-backup-database
 
+## [1.1.1](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.1.0...v1.1.1) (2026-02-24)
+
+
+### 🐛 Bug 修复
+
+* 支持通过环境变量配置备份输出路径和配置文件路径 ([3672969](https://github.com/CaoMeiYouRen/auto-backup-database/commit/3672969))
+
 # [1.1.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.0.0...v1.1.0) (2026-02-24)
 
 
