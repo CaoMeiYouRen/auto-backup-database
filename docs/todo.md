@@ -1,10 +1,10 @@
 # 项目待办事项 (TODO)
 
 ## 阶段 1: 基础建设
-- [ ] 初始化项目结构与 `docs/` 文档 (✅ 已完成)
-- [ ] 配置 `package.json` 中的关键依赖与构建脚本
-- [ ] 定义核心配置接口 (`src/types/config.ts`)
-- [ ] 实现配置加载逻辑 (YAML 解析与 `.env` 加载)
+- [x] 初始化项目结构与 `docs/` 文档
+- [x] 配置 `package.json` 中的关键依赖与构建脚本
+- [x] 定义核心配置接口 (`src/types/config.ts`)
+- [x] 实现配置加载逻辑 (YAML 解析与 `.env` 加载)
 
 ## 阶段 2: 数据库备份核心
 - [ ] 定义 `DatabaseProvider` 抽象接口

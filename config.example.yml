@@ -1,0 +1,21 @@
+# 数据库自动备份配置示例
+# 复制此文件为 config.yml 并根据实际情况修改
+
+projects:
+  - name: my-app-db
+    dbType: sqlite
+    dbPath: "/data/apps/my-app/*.db" # 支持 Glob 语法
+    backupSchedule: "0 2 * * *" # 每天凌晨 2 点
+    compress:
+      enabled: true
+      password: true # 使用环境变量中的 BACKUP_PASSWORD 加密
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
