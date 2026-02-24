@@ -1,8 +1,7 @@
-import { existsSync, unlinkSync } from 'node:fs'
+import { existsSync, unlinkSync, createReadStream, createWriteStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { $ } from 'zx'
-
-$.verbose = false
+import { Buffer } from 'node:buffer'
+import { randomBytes, pbkdf2Sync, createCipheriv, createDecipheriv } from 'node:crypto'
 
 /**
  * 加密结果
@@ -33,7 +32,7 @@ export interface DecryptResult {
 }
 
 /**
- * 加密文件
+ * 加密文件 (兼容 OpenSSL 'Salted__' 格式)
  * @param filePath 要加密的文件路径
  * @param password 加密密码
  * @param outputPath 输出文件路径（可选，默认在原文件名后加 .enc）
@@ -67,18 +66,34 @@ export async function encryptFile(
     const encryptedFile = outputPath || `${filePath}.enc`
 
     try {
-        // 获取原始文件大小
         const originalStats = await stat(filePath)
         const originalSize = originalStats.size
 
-        // 使用 openssl 加密
-        // -aes-256-cbc: 使用 AES-256-CBC 加密算法
-        // -salt: 添加盐值增强安全性
-        // -pbkdf2: 使用 PBKDF2 密钥派生函数
-        // -iter 100000: 迭代次数
-        await $`openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in ${filePath} -out ${encryptedFile} -pass pass:${password}`
+        // 生成 8 字节随机盐值
+        const salt = randomBytes(8)
 
-        // 获取加密后文件大小
+        // 使用 PBKDF2 派生密钥和 IV (兼容 OpenSSL)
+        // AES-256-CBC 需要 32 字节密钥和 16 字节 IV
+        const keyAndIv = pbkdf2Sync(password, salt, 100000, 32 + 16, 'sha256')
+        const key = keyAndIv.subarray(0, 32)
+        const iv = keyAndIv.subarray(32, 48)
+
+        const cipher = createCipheriv('aes-256-cbc', key, iv)
+
+        const input = createReadStream(filePath)
+        const output = createWriteStream(encryptedFile)
+
+        // 写入 OpenSSL 格式文件头: 'Salted__' + salt
+        output.write(Buffer.from('Salted__'))
+        output.write(salt)
+
+        await new Promise<void>((resolve, reject) => {
+            input.on('error', reject)
+            output.on('error', reject)
+            output.on('finish', resolve)
+            input.pipe(cipher).pipe(output)
+        })
+
         const encryptedStats = await stat(encryptedFile)
         const encryptedSize = encryptedStats.size
 
@@ -100,11 +115,7 @@ export async function encryptFile(
 }
 
 /**
- * 解密文件
- * @param filePath 要解密的文件路径
- * @param password 解密密码
- * @param outputPath 输出文件路径（可选，默认去掉 .enc 后缀）
- * @returns 解密结果
+ * 解密文件 (从 OpenSSL 'Salted__' 格式)
  */
 export async function decryptFile(
     filePath: string,
@@ -112,33 +123,46 @@ export async function decryptFile(
     outputPath?: string,
 ): Promise<DecryptResult> {
     if (!existsSync(filePath)) {
-        return {
-            decryptedFile: '',
-            success: false,
-            error: `文件不存在: ${filePath}`,
-        }
+        return { decryptedFile: '', success: false, error: `文件不存在: ${filePath}` }
     }
 
-    if (!password) {
-        return {
-            decryptedFile: '',
-            success: false,
-            error: '密码不能为空',
-        }
-    }
-
-    // 默认输出路径为去掉 .enc 后缀
-    const decryptedFile =
-        outputPath || (filePath.endsWith('.enc') ? filePath.slice(0, -4) : `${filePath}.dec`)
+    const decryptedFile = outputPath || (filePath.endsWith('.enc') ? filePath.slice(0, -4) : `${filePath}.dec`)
 
     try {
-        // 使用 openssl 解密
-        await $`openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in ${filePath} -out ${decryptedFile} -pass pass:${password}`
+        const input = createReadStream(filePath)
 
-        return {
-            decryptedFile,
-            success: true,
+        // 读取 16 字节头部 ('Salted__' + 8 字节 salt)
+        const header = await new Promise<Buffer>((resolve, reject) => {
+            const stream = createReadStream(filePath, { start: 0, end: 15 })
+            const chunks: Buffer[] = []
+            stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)))
+            stream.on('error', reject)
+            stream.on('end', () => resolve(Buffer.concat(chunks)))
+        })
+
+        if (header.subarray(0, 8).toString() !== 'Salted__') {
+            throw new Error('无效的加过密文件头')
         }
+
+        const salt = header.subarray(8, 16)
+        const keyAndIv = pbkdf2Sync(password, salt, 100000, 32 + 16, 'sha256')
+        const key = keyAndIv.subarray(0, 32)
+        const iv = keyAndIv.subarray(32, 48)
+
+        const decipher = createDecipheriv('aes-256-cbc', key, iv)
+        const output = createWriteStream(decryptedFile)
+
+        // 跳过头部读取剩余内容
+        const inputContent = createReadStream(filePath, { start: 16 })
+
+        await new Promise<void>((resolve, reject) => {
+            inputContent.on('error', reject)
+            output.on('error', reject)
+            output.on('finish', resolve)
+            inputContent.pipe(decipher).pipe(output)
+        })
+
+        return { decryptedFile, success: true }
     } catch (error) {
         return {
             decryptedFile: '',
@@ -150,10 +174,6 @@ export async function decryptFile(
 
 /**
  * 加密并删除原文件
- * @param filePath 要加密的文件路径
- * @param password 加密密码
- * @param outputPath 输出文件路径（可选）
- * @returns 加密结果
  */
 export async function encryptAndDelete(
     filePath: string,
@@ -161,27 +181,15 @@ export async function encryptAndDelete(
     outputPath?: string,
 ): Promise<EncryptResult> {
     const result = await encryptFile(filePath, password, outputPath)
-
     if (result.success) {
-        // 删除原文件
-        try {
-            unlinkSync(filePath)
-        } catch {
-            // 忽略删除错误
-        }
+        try { unlinkSync(filePath) } catch {}
     }
-
     return result
 }
 
 /**
- * 检查是否安装了 openssl
+ * 检查环境 (由于改为原生 crypto，默认总是可用)
  */
 export async function checkOpenSSL(): Promise<boolean> {
-    try {
-        await $`openssl version`
-        return true
-    } catch {
-        return false
-    }
+    return true
 }

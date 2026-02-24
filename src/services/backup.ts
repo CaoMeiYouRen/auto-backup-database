@@ -132,26 +132,37 @@ export class BackupService {
                 debug(`压缩完成: ${compressResult.compressedFile}`)
 
                 // 3. 加密（如果配置了密码）
-                if (project.compress.password && env.backupPassword) {
-                    const encryptResult = await encryptAndDelete(
-                        compressResult.compressedFile,
-                        env.backupPassword,
-                    )
+                if (project.compress.password) {
+                    if (!env.backupPassword) {
+                        debug('加密失败: 配置了密码加密但未在环境变量中设置 BACKUP_PASSWORD')
+                        result.encrypt = {
+                            success: false,
+                            error: '未设置 BACKUP_PASSWORD',
+                        }
+                    } else {
+                        const encryptResult = await encryptAndDelete(
+                            compressResult.compressedFile,
+                            env.backupPassword,
+                        )
 
-                    result.encrypt = {
-                        success: encryptResult.success,
-                        error: encryptResult.error,
+                        result.encrypt = {
+                            success: encryptResult.success,
+                            error: encryptResult.error,
+                        }
+
+                        if (!encryptResult.success) {
+                            debug(`加密失败: ${encryptResult.error}`)
+                        } else {
+                            debug(`加密完成: ${encryptResult.encryptedFile}`)
+                            // 更新压缩文件路径为加密后的文件
+                            result.compress.compressedFile = encryptResult.encryptedFile
+                        }
                     }
 
-                    if (!encryptResult.success) {
-                        debug(`加密失败: ${encryptResult.error}`)
+                    if (!result.encrypt.success) {
                         await this.notifyFailed(result)
                         return result
                     }
-
-                    debug(`加密完成: ${encryptResult.encryptedFile}`)
-                    // 更新压缩文件路径为加密后的文件
-                    result.compress.compressedFile = encryptResult.encryptedFile
                 }
             }
 

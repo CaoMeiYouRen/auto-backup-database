@@ -41,6 +41,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/archiver": "^7.0.0",
     "@types/debug": "^4.1.12",
     "@types/fs-extra": "^11.0.4",
     "@types/lodash-es": "^4.17.12",
@@ -92,6 +93,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.996.0",
+    "archiver": "^7.0.1",
     "better-bytes": "^1.2.6",
     "cron": "^4.4.0",
     "dayjs": "^1.11.19",

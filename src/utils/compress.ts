@@ -1,9 +1,7 @@
 import { basename, dirname } from 'node:path'
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, createWriteStream, readdirSync, statSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { $ } from 'zx'
-
-$.verbose = false
+import archiver from 'archiver'
 
 /**
  * 压缩结果
@@ -19,6 +17,39 @@ export interface CompressResult {
     success: boolean
     /** 错误信息 */
     error?: string
+}
+
+/**
+ * 通用的压缩执行逻辑（使用 archiver）
+ */
+async function runArchiver(
+    sourceSpecs: { path: string, name: string, type: 'file' | 'dir' }[],
+    outputPath: string,
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const output = createWriteStream(outputPath)
+        const archive = archiver('tar', {
+            gzip: true,
+            gzipOptions: {
+                level: 9,
+            },
+        })
+
+        output.on('close', () => resolve())
+        archive.on('error', (err) => reject(err))
+
+        archive.pipe(output)
+
+        for (const spec of sourceSpecs) {
+            if (spec.type === 'file') {
+                archive.file(spec.path, { name: spec.name })
+            } else {
+                archive.directory(spec.path, spec.name)
+            }
+        }
+
+        archive.finalize()
+    })
 }
 
 /**
@@ -38,18 +69,20 @@ export async function compress(sourcePath: string, outputPath?: string): Promise
         }
     }
 
-    const sourceDir = dirname(sourcePath)
     const sourceName = basename(sourcePath)
     const finalOutputPath = outputPath || sourcePath
     const compressedFile = `${finalOutputPath}.tar.gz`
 
     try {
-        // 获取原始大小
-        const originalSize = await getDirectorySize(sourcePath)
+        const stats = await stat(sourcePath)
+        const isDir = stats.isDirectory()
+        const originalSize = isDir ? await getDirectorySize(sourcePath) : stats.size
 
         // 执行压缩
-        // 使用 tar -czf 压缩，-C 切换目录
-        await $`tar -czf ${compressedFile} -C ${sourceDir} ${sourceName}`
+        await runArchiver(
+            [{ path: sourcePath, name: sourceName, type: isDir ? 'dir' : 'file' }],
+            compressedFile,
+        )
 
         // 获取压缩后大小
         const compressedSize = await getFileSize(compressedFile)
@@ -91,36 +124,23 @@ export async function compressMultiple(
         }
     }
 
-    // 检查所有文件是否存在
-    for (const file of filePaths) {
-        if (!existsSync(file)) {
-            return {
-                compressedFile: '',
-                originalSize: 0,
-                compressedSize: 0,
-                success: false,
-                error: `文件不存在: ${file}`,
-            }
-        }
-    }
-
     const compressedFile = `${outputFile}.tar.gz`
 
     try {
-        // 计算原始总大小
         let originalSize = 0
-        for (const file of filePaths) {
-            originalSize += await getFileSize(file)
+        const specs: { path: string, name: string, type: 'file' | 'dir' }[] = []
+
+        for (const path of filePaths) {
+            if (!existsSync(path)) {
+                throw new Error(`文件不存在: ${path}`)
+            }
+            const stats = await stat(path)
+            originalSize += stats.size
+            specs.push({ path, name: basename(path), type: 'file' })
         }
 
-        // 获取公共父目录
-        const commonDir = dirname(filePaths[0])
-
-        // 获取相对文件名列表
-        const fileNames = filePaths.map((f) => basename(f))
-
         // 执行压缩
-        await $`tar -czf ${compressedFile} -C ${commonDir} ${fileNames}`
+        await runArchiver(specs, compressedFile)
 
         // 获取压缩后大小
         const compressedSize = await getFileSize(compressedFile)
@@ -168,12 +188,11 @@ export async function compressDirectory(
         // 获取目录大小
         const originalSize = await getDirectorySize(dirPath)
 
-        // 获取目录名和父目录
-        const parentDir = dirname(dirPath)
-        const dirName = basename(dirPath)
-
         // 执行压缩
-        await $`tar -czf ${compressedFile} -C ${parentDir} ${dirName}`
+        await runArchiver(
+            [{ path: dirPath, name: basename(dirPath), type: 'dir' }],
+            compressedFile,
+        )
 
         // 获取压缩后大小
         const compressedSize = await getFileSize(compressedFile)
