@@ -86,6 +86,8 @@
     "url": "https://github.com/CaoMeiYouRen/auto-backup-database/issues"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.996.0",
+    "better-bytes": "^1.2.6",
     "cron": "^4.4.0",
     "dayjs": "^1.11.19",
     "dotenv": "^17.3.1",
