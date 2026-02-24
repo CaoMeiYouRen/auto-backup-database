@@ -4,7 +4,7 @@ export default defineConfig({
     platform: 'node', // 目标平台
     entry: ['src/index.ts', 'src/cli.ts'], // 入口文件
     outDir: 'dist', // 输出目录
-    format: ['cjs', 'esm'],
+    format: ['esm'],
     fixedExtension: true, // 保持输出文件的扩展名一致
     hash: false, // 不添加哈希到输出文件名
     nodeProtocol: true, // 为内置模块添加 node: 前缀（例如，fs → node:fs）
