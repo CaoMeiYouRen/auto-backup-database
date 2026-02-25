@@ -1,5 +1,12 @@
 # auto-backup-database
 
+# [1.2.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.1.1...v1.2.0) (2026-02-25)
+
+
+### ✨ 新功能
+
+* 引入 BackupTaskResult 类型并优化通知服务的备份结果处理 ([1d891f4](https://github.com/CaoMeiYouRen/auto-backup-database/commit/1d891f4))
+
 ## [1.1.1](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.1.0...v1.1.1) (2026-02-24)
 
 
