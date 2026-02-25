@@ -10,46 +10,9 @@ import { encryptAndDelete } from '@/utils/encrypt'
 import { LocalStorage, type CleanupResult } from '@/storage/local'
 import { OSSStorage, type UploadResult } from '@/storage/oss'
 import { NotifyService } from '@/notify'
+import type { BackupTaskResult } from '@/types/backup'
 
 const debug = Debug('backup:service')
-
-/**
- * 备份任务结果
- */
-export interface BackupTaskResult {
-    /** 项目名称 */
-    projectName: string
-    /** 备份结果 */
-    backup: BackupResult
-    /** 压缩结果 */
-    compress?: {
-        success: boolean
-        compressedFile?: string
-        error?: string
-    }
-    /** 加密结果 */
-    encrypt?: {
-        success: boolean
-        error?: string
-    }
-    /** 本地上传结果 */
-    localUpload?: {
-        success: boolean
-        error?: string
-    }
-    /** 远程上传结果 */
-    remoteUpload?: {
-        success: boolean
-        results?: UploadResult[]
-        error?: string
-    }
-    /** 本地清理结果 */
-    localCleanup?: CleanupResult
-    /** 远程清理结果 */
-    remoteCleanup?: CleanupResult
-    /** 整体是否成功 */
-    overallSuccess: boolean
-}
 
 /**
  * 备份服务配置
@@ -390,7 +353,7 @@ export class BackupService {
      */
     private async notifySuccess(result: BackupTaskResult): Promise<void> {
         if (this.notifyService) {
-            await this.notifyService.notifyBackupSuccess(result.backup)
+            await this.notifyService.notifyBackupSuccess(result)
         }
     }
 
@@ -399,7 +362,7 @@ export class BackupService {
      */
     private async notifyFailed(result: BackupTaskResult): Promise<void> {
         if (this.notifyService) {
-            await this.notifyService.notifyBackupFailed(result.backup)
+            await this.notifyService.notifyBackupFailed(result)
         }
     }
 }

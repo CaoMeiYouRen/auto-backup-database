@@ -26,3 +26,5 @@ notify:
   config:
     DINGTALK_ACCESS_TOKEN: your-token
     DINGTALK_SECRET: your-secret
+  option:
+    msgtype: markdown

@@ -1,9 +1,10 @@
 import { join } from 'node:path'
 import { CronJob } from 'cron'
 import Debug from 'debug'
-import { BackupService, type BackupTaskResult } from './backup'
+import { BackupService } from './backup'
 import type { ProjectConfig, EnvConfig } from '@/types/config'
 import type { NotifyService } from '@/notify'
+import type { BackupTaskResult } from '@/types/backup'
 
 const debug = Debug('backup:scheduler')
 

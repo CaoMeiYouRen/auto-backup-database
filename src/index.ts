@@ -44,7 +44,8 @@ export type { NotifyEventType, NotifyConfig, NotifyResult } from './notify'
 
 // 备份服务
 export { BackupService } from './services/backup'
-export type { BackupTaskResult, BackupServiceConfig } from './services/backup'
+export type { BackupServiceConfig } from './services/backup'
+export type { BackupTaskResult } from './types/backup'
 
 // 调度服务
 export { SchedulerService } from './services/scheduler'
