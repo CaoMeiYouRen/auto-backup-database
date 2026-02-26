@@ -129,8 +129,6 @@ export async function decryptFile(
     const decryptedFile = outputPath || (filePath.endsWith('.enc') ? filePath.slice(0, -4) : `${filePath}.dec`)
 
     try {
-        const input = createReadStream(filePath)
-
         // 读取 16 字节头部 ('Salted__' + 8 字节 salt)
         const header = await new Promise<Buffer>((resolve, reject) => {
             const stream = createReadStream(filePath, { start: 0, end: 15 })
@@ -182,7 +180,11 @@ export async function encryptAndDelete(
 ): Promise<EncryptResult> {
     const result = await encryptFile(filePath, password, outputPath)
     if (result.success) {
-        try { unlinkSync(filePath) } catch {}
+        try {
+            unlinkSync(filePath)
+        } catch {
+            // 忽略错误
+        }
     }
     return result
 }
@@ -190,6 +192,6 @@ export async function encryptAndDelete(
 /**
  * 检查环境 (由于改为原生 crypto，默认总是可用)
  */
-export async function checkOpenSSL(): Promise<boolean> {
-    return true
+export function checkOpenSSL(): Promise<boolean> {
+    return Promise.resolve(true)
 }

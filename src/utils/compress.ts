@@ -1,4 +1,4 @@
-import { basename, dirname } from 'node:path'
+import { basename } from 'node:path'
 import { existsSync, createWriteStream, readdirSync, statSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import archiver from 'archiver'
@@ -48,7 +48,9 @@ async function runArchiver(
             }
         }
 
-        archive.finalize()
+        archive.finalize().catch((err: unknown) => {
+            reject(err instanceof Error ? err : new Error('Archiver finalize failed'))
+        })
     })
 }
 
@@ -76,7 +78,7 @@ export async function compress(sourcePath: string, outputPath?: string): Promise
     try {
         const stats = await stat(sourcePath)
         const isDir = stats.isDirectory()
-        const originalSize = isDir ? await getDirectorySize(sourcePath) : stats.size
+        const originalSize = isDir ? getDirectorySize(sourcePath) : stats.size
 
         // 执行压缩
         await runArchiver(
@@ -186,7 +188,7 @@ export async function compressDirectory(
 
     try {
         // 获取目录大小
-        const originalSize = await getDirectorySize(dirPath)
+        const originalSize = getDirectorySize(dirPath)
 
         // 执行压缩
         await runArchiver(
@@ -229,7 +231,7 @@ async function getFileSize(filePath: string): Promise<number> {
 /**
  * 获取目录大小
  */
-async function getDirectorySize(dirPath: string): Promise<number> {
+function getDirectorySize(dirPath: string): number {
     let size = 0
 
     function walkSync(currentPath: string) {

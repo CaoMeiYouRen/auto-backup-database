@@ -1,7 +1,6 @@
 import { runPushAllInOne, type PushType, type MetaPushConfig } from 'push-all-in-one'
 import { format } from 'better-bytes'
 import Debug from 'debug'
-import type { BackupResult } from '@/providers/database'
 import type { CleanupResult } from '@/storage/local'
 import type { BackupTaskResult } from '@/types/backup'
 
@@ -136,12 +135,16 @@ export class NotifyService {
         // 数据库备份详情
         lines.push(`---`)
         lines.push(`** - 数据库导出**: ${result.backup.success ? '✅' : '❌'}`)
-        if (result.backup.error) { lines.push(`   - 错误: ${result.backup.error}`) }
+        if (result.backup.error) {
+            lines.push(`   - 错误: ${result.backup.error}`)
+        }
 
         // 压缩详情
         if (result.compress) {
             lines.push(`\n** - 压缩**: ${result.compress.success ? '✅' : '❌'}`)
-            if (result.compress.error) { lines.push(`   - 错误: ${result.compress.error}`) }
+            if (result.compress.error) {
+                lines.push(`   - 错误: ${result.compress.error}`)
+            }
             if (result.compress.originalSize !== undefined && result.compress.compressedSize !== undefined) {
                 lines.push(`   - 原始大小: ${format(result.compress.originalSize)}`)
                 lines.push(`   - 压缩后大小: ${format(result.compress.compressedSize)}`)
@@ -151,18 +154,24 @@ export class NotifyService {
         // 加密详情
         if (result.encrypt) {
             lines.push(`\n** - 加密**: ${result.encrypt.success ? '✅' : '❌'}`)
-            if (result.encrypt.error) { lines.push(`   - 错误: ${result.encrypt.error}`) }
+            if (result.encrypt.error) {
+                lines.push(`   - 错误: ${result.encrypt.error}`)
+            }
         }
 
         // 存储详情
         lines.push(`\n** - 存储**:`)
         if (result.localUpload) {
             lines.push(`   - 本地: ${result.localUpload.success ? '✅' : '❌'}`)
-            if (result.localUpload.error) { lines.push(`     - 错误: ${result.localUpload.error}`) }
+            if (result.localUpload.error) {
+                lines.push(`     - 错误: ${result.localUpload.error}`)
+            }
         }
         if (result.remoteUpload) {
             lines.push(`   - 远程: ${result.remoteUpload.success ? '✅' : '❌'}`)
-            if (result.remoteUpload.error) { lines.push(`     - 错误: ${result.remoteUpload.error}`) }
+            if (result.remoteUpload.error) {
+                lines.push(`     - 错误: ${result.remoteUpload.error}`)
+            }
         }
 
         // 清理详情
