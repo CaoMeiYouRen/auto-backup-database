@@ -1,5 +1,17 @@
 # auto-backup-database
 
+## [1.2.1](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.2.0...v1.2.1) (2026-02-26)
+
+
+### 🐛 Bug 修复
+
+* 在备份任务结果中添加压缩原始大小和压缩后大小信息 ([f20cc50](https://github.com/CaoMeiYouRen/auto-backup-database/commit/f20cc50))
+
+
+### 📦 代码重构
+
+* 优化通知服务中的错误处理和压缩结果输出 ([2697e47](https://github.com/CaoMeiYouRen/auto-backup-database/commit/2697e47))
+
 # [1.2.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.1.1...v1.2.0) (2026-02-25)
 
 
