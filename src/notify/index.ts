@@ -135,23 +135,27 @@ export class NotifyService {
 
         // 数据库备份详情
         lines.push(`---`)
-        lines.push(`**1. 数据库导出**: ${result.backup.success ? '✅' : '❌'}`)
+        lines.push(`** - 数据库导出**: ${result.backup.success ? '✅' : '❌'}`)
         if (result.backup.error) { lines.push(`   - 错误: ${result.backup.error}`) }
 
         // 压缩详情
         if (result.compress) {
-            lines.push(`**2. 压缩**: ${result.compress.success ? '✅' : '❌'}`)
+            lines.push(`\n** - 压缩**: ${result.compress.success ? '✅' : '❌'}`)
             if (result.compress.error) { lines.push(`   - 错误: ${result.compress.error}`) }
+            if (result.compress.originalSize !== undefined && result.compress.compressedSize !== undefined) {
+                lines.push(`   - 原始大小: ${format(result.compress.originalSize)}`)
+                lines.push(`   - 压缩后大小: ${format(result.compress.compressedSize)}`)
+            }
         }
 
         // 加密详情
         if (result.encrypt) {
-            lines.push(`**3. 加密**: ${result.encrypt.success ? '✅' : '❌'}`)
+            lines.push(`\n** - 加密**: ${result.encrypt.success ? '✅' : '❌'}`)
             if (result.encrypt.error) { lines.push(`   - 错误: ${result.encrypt.error}`) }
         }
 
         // 存储详情
-        lines.push(`**4. 存储**:`)
+        lines.push(`\n** - 存储**:`)
         if (result.localUpload) {
             lines.push(`   - 本地: ${result.localUpload.success ? '✅' : '❌'}`)
             if (result.localUpload.error) { lines.push(`     - 错误: ${result.localUpload.error}`) }
@@ -163,7 +167,7 @@ export class NotifyService {
 
         // 清理详情
         if (result.localCleanup || result.remoteCleanup) {
-            lines.push(`**5. 清理**:`)
+            lines.push(`\n** - 清理**:`)
             if (result.localCleanup) {
                 lines.push(`   - 本地清理: ${result.localCleanup.success ? '✅' : '❌'} (删除 ${result.localCleanup.deletedFiles.length} 个文件, 释放 ${format(result.localCleanup.freedSpace)})`)
             }

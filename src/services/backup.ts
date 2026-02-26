@@ -83,6 +83,8 @@ export class BackupService {
                 result.compress = {
                     success: compressResult.success,
                     compressedFile: compressResult.compressedFile,
+                    originalSize: compressResult.originalSize,
+                    compressedSize: compressResult.compressedSize,
                     error: compressResult.error,
                 }
 

@@ -14,6 +14,8 @@ export interface BackupTaskResult {
     compress?: {
         success: boolean
         compressedFile?: string
+        originalSize?: number
+        compressedSize?: number
         error?: string
     }
     /** 加密结果 */
