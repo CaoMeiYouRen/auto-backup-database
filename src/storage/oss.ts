@@ -74,7 +74,7 @@ export class OSSStorage {
                 secretAccessKey: config.accessKeySecret,
             },
             // 强制使用 path-style 访问（兼容阿里云 OSS 等）
-            forcePathStyle: config.endpoint.includes('aliyuncs'),
+            // forcePathStyle: config.endpoint.includes('aliyuncs'),
         })
     }
 
