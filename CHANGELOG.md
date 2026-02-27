@@ -1,5 +1,12 @@
 # auto-backup-database
 
+## [1.2.2](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.2.1...v1.2.2) (2026-02-27)
+
+
+### 🐛 Bug 修复
+
+* 注释掉强制使用 path-style 访问的配置 ([125c9f3](https://github.com/CaoMeiYouRen/auto-backup-database/commit/125c9f3))
+
 ## [1.2.1](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.2.0...v1.2.1) (2026-02-26)
 
 
