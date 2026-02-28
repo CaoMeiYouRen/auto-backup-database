@@ -5,6 +5,8 @@ services:
     container_name: "auto-backup-database"
     image: ${DOCKER_IMAGE:-caomeiyouren/auto-backup-database}
     restart: unless-stopped
+    # 如果只需要执行一次备份，可以使用以下命令覆盖默认的持续运行命令，执行完毕后容器会退出
+    # command: ["-m", "once"]
     environment:
       - NODE_ENV=production
       - TZ=Asia/Shanghai
