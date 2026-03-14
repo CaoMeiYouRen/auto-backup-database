@@ -23,7 +23,7 @@
 
 ## 功能特性
 
-- **多数据库支持**: SQLite（已实现）、MySQL、PostgreSQL、MongoDB（计划中）
+- **多数据库支持**: SQLite（已实现）、MongoDB（设计已补充，待实现）、MySQL、PostgreSQL（计划中）
 - **Glob 匹配**: 支持 Glob 语法批量匹配数据库文件
 - **压缩加密**: 自动压缩备份文件，支持可选的密码加密
 - **本地 + 远程存储**: 同时支持本地备份和 OSS/S3 远程备份
@@ -36,6 +36,7 @@
 - Node.js >= 20
 - tar（用于压缩）
 - openssl（用于加密，可选）
+- MongoDB Database Tools（仅在启用 MongoDB 备份时需要；Docker 镜像内已预装，宿主机部署需自行安装并确保 `mongodump` 可执行）
 
 ## 安装
 
@@ -92,7 +93,18 @@ OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
 
 # 备份加密密码（可选）
 BACKUP_PASSWORD=your-secure-password
+
+# MongoDB（可选）
+MONGODB_URI=mongodb://username:password@127.0.0.1:27017/app?authSource=admin
 ```
+
+### 3. MongoDB 备份说明
+
+MongoDB 备份计划基于官方 `mongodump` 工具实现：
+
+- Docker 部署时，镜像内预装 MongoDB Database Tools，无需额外安装。
+- 非 Docker 部署时，需要自行安装 MongoDB Database Tools，并确保 `mongodump --version` 可以直接执行。
+- 后续配置将扩展 `dbType: mongodb`、连接信息和 `dumpOptions`，备份产物会继续复用现有压缩、加密、本地存储和 OSS 上传流程。
 
 ## 使用
 
