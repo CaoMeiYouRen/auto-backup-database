@@ -1,5 +1,19 @@
 # auto-backup-database
 
+# [1.3.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.2.2...v1.3.0) (2026-03-14)
+
+
+### ✨ 新功能
+
+* **backup:** 支持多个备份产物路径的处理与上传 ([fa98ecf](https://github.com/CaoMeiYouRen/auto-backup-database/commit/fa98ecf))
+* **database:** 添加 MongoDB 数据库提供者 ([267f051](https://github.com/CaoMeiYouRen/auto-backup-database/commit/267f051))
+* **docs:** 添加 MongoDB 支持的相关文档和配置示例 ([267992d](https://github.com/CaoMeiYouRen/auto-backup-database/commit/267992d))
+
+
+### 🐛 Bug 修复
+
+* **mongodb:** 优化备份参数构建与错误处理 ([3ca6d22](https://github.com/CaoMeiYouRen/auto-backup-database/commit/3ca6d22))
+
 ## [1.2.2](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.2.1...v1.2.2) (2026-02-27)
 
 
