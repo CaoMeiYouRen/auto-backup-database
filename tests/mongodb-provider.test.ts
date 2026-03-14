@@ -60,8 +60,13 @@ describe('MongoDBProvider', () => {
                 return
             }
 
-            const archiveIndex = args.indexOf('--archive')
-            const archivePath = args[archiveIndex + 1]
+            const archiveArg = args.find((arg) => arg.startsWith('--archive='))
+            const archivePath = archiveArg?.slice('--archive='.length)
+            if (!archivePath) {
+                callback(new Error('missing archive argument'))
+                return
+            }
+
             mkdirSync(dirname(archivePath), { recursive: true })
             writeFileSync(archivePath, 'mock-archive-content')
             callback(null, 'done', '')
@@ -87,17 +92,16 @@ describe('MongoDBProvider', () => {
         expect(execFileMock).toHaveBeenCalledWith(
             'mongodump',
             expect.arrayContaining([
-                '--uri',
-                project.connection.uri,
-                '--db',
-                'app',
-                '--authenticationDatabase',
-                'admin',
+                `--uri=${project.connection.uri}`,
+                '--authenticationDatabase=admin',
                 '--numParallelCollections=1',
             ]),
             expect.any(Object),
             expect.any(Function),
         )
+        const calledArgs = execFileMock.mock.calls.at(-1)?.[1] as string[]
+        expect(calledArgs.some((arg) => arg.startsWith('--archive='))).toBe(true)
+        expect(calledArgs.some((arg) => arg === '--db=app')).toBe(false)
     })
 
     it('应该在 mongodump 缺失时返回清晰错误', async () => {

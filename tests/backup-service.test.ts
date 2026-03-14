@@ -34,8 +34,13 @@ describe('BackupService', () => {
                 return
             }
 
-            const archiveIndex = args.indexOf('--archive')
-            const archivePath = args[archiveIndex + 1]
+            const archiveArg = args.find((arg) => arg.startsWith('--archive='))
+            const archivePath = archiveArg?.slice('--archive='.length)
+            if (!archivePath) {
+                callback(new Error('missing archive argument'))
+                return
+            }
+
             mkdirSync(dirname(archivePath), { recursive: true })
             writeFileSync(archivePath, 'mock-archive-content')
             callback(null, 'done', '')

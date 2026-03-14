@@ -100,22 +100,20 @@ export class MongoDBProvider extends DatabaseProvider<MongoDBProjectConfig> {
      */
     private buildDumpArgs(archivePath: string): string[] {
         const args = [
-            '--uri',
-            this.config.connection.uri,
-            '--archive',
-            archivePath,
+            `--uri=${this.config.connection.uri}`,
+            `--archive=${archivePath}`,
         ]
 
-        if (this.config.connection.database) {
-            args.push('--db', this.config.connection.database)
+        if (this.config.connection.database && !this.hasDatabaseNameInUri(this.config.connection.uri)) {
+            args.push(`--db=${this.config.connection.database}`)
         }
 
         if (this.config.dumpOptions?.authenticationDatabase) {
-            args.push('--authenticationDatabase', this.config.dumpOptions.authenticationDatabase)
+            args.push(`--authenticationDatabase=${this.config.dumpOptions.authenticationDatabase}`)
         }
 
         if (this.config.dumpOptions?.readPreference) {
-            args.push('--readPreference', this.config.dumpOptions.readPreference)
+            args.push(`--readPreference=${this.config.dumpOptions.readPreference}`)
         }
 
         if (this.config.dumpOptions?.gzip) {
@@ -127,6 +125,18 @@ export class MongoDBProvider extends DatabaseProvider<MongoDBProjectConfig> {
         }
 
         return args
+    }
+
+    /**
+     * 检查 URI 中是否已经包含数据库名，避免与 --db 重复传参
+     */
+    private hasDatabaseNameInUri(uri: string): boolean {
+        try {
+            const parsed = new URL(uri)
+            return parsed.pathname.length > 1
+        } catch {
+            return false
+        }
     }
 
     /**
