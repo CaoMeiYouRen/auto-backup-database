@@ -1,6 +1,16 @@
 # 数据库自动备份配置示例
 # 复制此文件为 config.yml 并根据实际情况修改
 
+oss:
+  region: "${OSS_REGION}"
+  accessKeyId: "${OSS_ACCESS_KEY_ID}"
+  accessKeySecret: "${OSS_ACCESS_KEY_SECRET}"
+  bucket: "${OSS_BUCKET}"
+  endpoint: "${OSS_ENDPOINT}"
+
+security:
+  backupPassword: "${BACKUP_PASSWORD}"
+
 projects:
   - name: my-app-db
     dbType: sqlite
@@ -19,12 +29,37 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: true
+
+  - name: mongo-prod
+    dbType: mongodb
+    connection:
+      uri: "${MONGODB_URI}"
+      database: "${MONGODB_DATABASE:-app}"
+    dumpOptions:
+      archive: true
+      authenticationDatabase: "${MONGODB_AUTH_DB:-admin}"
+      extraArgs: []
+    backupSchedule: "0 3 * * *"
+    compress:
+      enabled: true
+      password: true
+    retention:
+      local:
+        days: 7
+        maxSize: 5GB
+      remote:
+        days: 30
+        maxSize: 20GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+
 # 通知配置（可选）
 notify:
   enabled: true
   type: Dingtalk # 支持多种推送方式，详见 push-all-in-one
   config:
-    DINGTALK_ACCESS_TOKEN: your-token
-    DINGTALK_SECRET: your-secret
+    DINGTALK_ACCESS_TOKEN: "${DINGTALK_ACCESS_TOKEN}"
+    DINGTALK_SECRET: "${DINGTALK_SECRET}"
   option:
     msgtype: markdown

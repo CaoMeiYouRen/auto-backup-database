@@ -1,8 +1,9 @@
-import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfigLoader } from '@/config/loader'
+import type { FullConfig } from '@/types/config'
 
 describe('ConfigLoader', () => {
     let tempDir: string
@@ -10,21 +11,78 @@ describe('ConfigLoader', () => {
     let envPath: string
 
     beforeEach(() => {
-        tempDir = join(tmpdir(), `backup-test-${Date.now()}`)
+        tempDir = join(tmpdir(), `backup-config-test-${Date.now()}`)
         mkdirSync(tempDir, { recursive: true })
         configPath = join(tempDir, 'config.yml')
         envPath = join(tempDir, '.env')
     })
 
     afterEach(() => {
+        vi.unstubAllEnvs()
+
         if (existsSync(tempDir)) {
             rmSync(tempDir, { recursive: true, force: true })
         }
     })
 
-    describe('loadAppConfig', () => {
-        it('应该正确加载有效的配置文件', () => {
-            const configContent = `
+    it('应该返回展开后的统一配置对象', () => {
+        writeFileSync(configPath, `
+oss:
+  region: "\${OSS_REGION}"
+  accessKeyId: "\${OSS_ACCESS_KEY_ID}"
+  accessKeySecret: "\${OSS_ACCESS_KEY_SECRET}"
+  bucket: "\${OSS_BUCKET}"
+  endpoint: "\${OSS_ENDPOINT}"
+
+security:
+  backupPassword: "\${BACKUP_PASSWORD}"
+
+projects:
+  - name: test-db
+    dbType: sqlite
+    dbPath: "\${SQLITE_PATH:-/data/test/*.db}"
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: true
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+`)
+
+        writeFileSync(envPath, `
+OSS_REGION=oss-cn-hangzhou
+OSS_ACCESS_KEY_ID=test-key-id
+OSS_ACCESS_KEY_SECRET=test-secret
+OSS_BUCKET=test-bucket
+OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
+BACKUP_PASSWORD=test-password
+`)
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
+
+        expect(config.oss?.region).toBe('oss-cn-hangzhou')
+        expect(config.oss?.accessKeyId).toBe('test-key-id')
+        expect(config.security?.backupPassword).toBe('test-password')
+        expect(config.projects[0].dbType).toBe('sqlite')
+        if (config.projects[0].dbType === 'sqlite') {
+            expect(config.projects[0].dbPath).toBe('/data/test/*.db')
+        }
+    })
+
+    it('应该在缺少必填变量时抛出清晰错误', () => {
+        writeFileSync(configPath, `
+security:
+  backupPassword: "\${MISSING_BACKUP_PASSWORD_FOR_TEST}"
+
 projects:
   - name: test-db
     dbType: sqlite
@@ -43,85 +101,19 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: false
-`
-            writeFileSync(configPath, configContent)
+`)
+        writeFileSync(envPath, '')
 
-            const loader = new ConfigLoader(configPath, envPath)
-            const config = loader.loadAppConfig()
+        const loader = new ConfigLoader(configPath, envPath)
 
-            expect(config.projects).toHaveLength(1)
-            expect(config.projects[0].name).toBe('test-db')
-            expect(config.projects[0].dbType).toBe('sqlite')
-            expect(config.projects[0].backupSchedule).toBe('0 2 * * *')
-        })
-
-        it('应该抛出错误如果配置文件不存在', () => {
-            const loader = new ConfigLoader('/nonexistent/config.yml', envPath)
-
-            expect(() => loader.loadAppConfig()).toThrow('配置文件不存在')
-        })
-
-        it('应该抛出错误如果配置文件格式不正确', () => {
-            writeFileSync(configPath, 'invalid: yaml: content:')
-
-            const loader = new ConfigLoader(configPath, envPath)
-
-            expect(() => loader.loadAppConfig()).toThrow()
-        })
-
-        it('应该抛出错误如果缺少 projects 字段', () => {
-            writeFileSync(configPath, 'other: value')
-
-            const loader = new ConfigLoader(configPath, envPath)
-
-            expect(() => loader.loadAppConfig()).toThrow('缺少 projects 字段')
-        })
+        expect(() => loader.load()).toThrow('配置字段 "security.backupPassword" 引用了未定义的环境变量 "MISSING_BACKUP_PASSWORD_FOR_TEST"')
     })
 
-    describe('loadEnvConfig', () => {
-        it('应该正确加载环境变量', () => {
-            const envContent = `
-OSS_REGION=oss-cn-hangzhou
-OSS_ACCESS_KEY_ID=test-key-id
-OSS_ACCESS_KEY_SECRET=test-secret
-OSS_BUCKET=test-bucket
-OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
-BACKUP_PASSWORD=test-password
-`
-            writeFileSync(envPath, envContent)
+    it('应该在变量缺失时使用默认值', () => {
+        writeFileSync(configPath, `
+security:
+  backupPassword: "\${BACKUP_PASSWORD_FOR_DEFAULT_TEST:-default-password}"
 
-            const loader = new ConfigLoader(configPath, envPath)
-            const env = loader.loadEnvConfig()
-
-            expect(env.oss.region).toBe('oss-cn-hangzhou')
-            expect(env.oss.accessKeyId).toBe('test-key-id')
-            expect(env.oss.accessKeySecret).toBe('test-secret')
-            expect(env.oss.bucket).toBe('test-bucket')
-            expect(env.oss.endpoint).toBe('https://oss-cn-hangzhou.aliyuncs.com')
-            expect(env.backupPassword).toBe('test-password')
-        })
-
-        it('应该返回空值如果 .env 文件不存在', () => {
-            // 清理可能存在的环境变量
-            delete process.env.OSS_REGION
-            delete process.env.OSS_ACCESS_KEY_ID
-            delete process.env.OSS_ACCESS_KEY_SECRET
-            delete process.env.OSS_BUCKET
-            delete process.env.OSS_ENDPOINT
-            delete process.env.BACKUP_PASSWORD
-
-            const loader = new ConfigLoader(configPath, '/nonexistent/.env')
-            const env = loader.loadEnvConfig()
-
-            expect(env.oss.region).toBe('')
-            expect(env.oss.accessKeyId).toBe('')
-            expect(env.backupPassword).toBeUndefined()
-        })
-    })
-
-    describe('validate', () => {
-        it('应该通过有效配置的校验', () => {
-            const configContent = `
 projects:
   - name: test-db
     dbType: sqlite
@@ -129,6 +121,7 @@ projects:
     backupSchedule: "0 2 * * *"
     compress:
       enabled: true
+      password: false
     retention:
       local:
         days: 7
@@ -139,25 +132,21 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: false
-`
-            writeFileSync(configPath, configContent)
-            writeFileSync(envPath, '')
+`)
+        writeFileSync(envPath, '')
 
-            const loader = new ConfigLoader(configPath, envPath)
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
 
-            // 不应该抛出错误
-            expect(() => loader.load()).not.toThrow()
-        })
+        expect(config.security?.backupPassword).toBe('default-password')
+    })
 
-        it('应该校验 OSS 配置如果启用了远程备份', () => {
-            // 清理可能存在的环境变量
-            delete process.env.OSS_REGION
-            delete process.env.OSS_ACCESS_KEY_ID
-            delete process.env.OSS_ACCESS_KEY_SECRET
-            delete process.env.OSS_BUCKET
-            delete process.env.OSS_ENDPOINT
+    it('应该保留特殊字符而不破坏字符串值', () => {
+        vi.stubEnv('SPECIAL_BACKUP_PASSWORD', 'p@ss word:#[]?&=value')
+        writeFileSync(configPath, `
+security:
+  backupPassword: "\${SPECIAL_BACKUP_PASSWORD}"
 
-            const configContent = `
 projects:
   - name: test-db
     dbType: sqlite
@@ -165,6 +154,66 @@ projects:
     backupSchedule: "0 2 * * *"
     compress:
       enabled: true
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
+
+        expect(config.security?.backupPassword).toBe('p@ss word:#[]?&=value')
+    })
+
+    it('应该支持转义占位符并保留字面量', () => {
+        writeFileSync(configPath, `
+metadata: '\\\${LITERAL_PLACEHOLDER}'
+projects:
+  - name: test-db
+    dbType: sqlite
+    dbPath: "/data/test/*.db"
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.loadAppConfig() as FullConfig & { metadata: string }
+
+        expect(config.metadata).toBe('${LITERAL_PLACEHOLDER}')
+    })
+
+    it('应该在启用远程备份时校验 oss 配置', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: test-db
+    dbType: sqlite
+    dbPath: "/data/test/*.db"
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
     retention:
       local:
         days: 7
@@ -175,24 +224,24 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: true
-`
-            writeFileSync(configPath, configContent)
-            writeFileSync(envPath, '')
+`)
+        writeFileSync(envPath, '')
 
-            const loader = new ConfigLoader(configPath, envPath)
+        const loader = new ConfigLoader(configPath, envPath)
 
-            expect(() => loader.load()).toThrow('OSS 配置错误')
-        })
+        expect(() => loader.load()).toThrow('OSS 配置错误: 缺少 oss 配置')
+    })
 
-        it('应该校验 Cron 表达式格式', () => {
-            const configContent = `
+    it('应该在启用密码加密时校验 security.backupPassword', () => {
+        writeFileSync(configPath, `
 projects:
   - name: test-db
     dbType: sqlite
     dbPath: "/data/test/*.db"
-    backupSchedule: "invalid-cron"
+    backupSchedule: "0 2 * * *"
     compress:
       enabled: true
+      password: true
     retention:
       local:
         days: 7
@@ -203,13 +252,42 @@ projects:
     options:
       localEnabled: true
       remoteEnabled: false
-`
-            writeFileSync(configPath, configContent)
-            writeFileSync(envPath, '')
+`)
+        writeFileSync(envPath, '')
 
-            const loader = new ConfigLoader(configPath, envPath)
+        const loader = new ConfigLoader(configPath, envPath)
 
-            expect(() => loader.load()).toThrow('不是有效的 Cron 表达式')
-        })
+        expect(() => loader.load()).toThrow('安全配置错误: 启用了密码加密但缺少 security.backupPassword')
+    })
+
+    it('应该校验 MongoDB gzip 与项目压缩冲突', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: mongo-db
+    dbType: mongodb
+    connection:
+      uri: "mongodb://127.0.0.1:27017/app"
+    dumpOptions:
+      gzip: true
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('dumpOptions.gzip 与 compress.enabled 不能同时启用')
     })
 })

@@ -119,7 +119,7 @@ async function main(): Promise<void> {
     try {
         // 加载配置
         const config = loadConfig(options.config, options.env)
-        debug('配置加载完成，项目数: %d', config.app.projects.length)
+        debug('配置加载完成，项目数: %d', config.projects.length)
 
         // 设置默认目录，优先级：CLI 参数 > 环境变量 > 默认值
         const localBackupDir = resolve(options.output || process.env.BACKUP_OUTPUT || './backups')
@@ -131,9 +131,9 @@ async function main(): Promise<void> {
 
         // 创建通知服务（如果配置了）
         let notifyService: NotifyService | undefined
-        if (config.app.notify?.enabled) {
-            notifyService = new NotifyService(config.app.notify)
-            debug('通知服务已启用: %s', config.app.notify.type)
+        if (config.notify?.enabled) {
+            notifyService = new NotifyService(config.notify)
+            debug('通知服务已启用: %s', config.notify.type)
         }
 
         if (options.mode === 'once') {
@@ -163,8 +163,8 @@ async function runOnce(
     debug('单次执行模式')
 
     const projects = projectName
-        ? config.app.projects.filter((p) => p.name === projectName)
-        : config.app.projects
+        ? config.projects.filter((p) => p.name === projectName)
+        : config.projects
 
     if (projects.length === 0) {
         console.error('未找到匹配的项目')
@@ -181,7 +181,7 @@ async function runOnce(
 
         const backupService = new BackupService({
             project,
-            env: config.env,
+            fullConfig: config,
             localBackupDir,
             tempDir: join(tempDir, `${project.name}-${Date.now()}`),
             notifyService,
@@ -220,8 +220,7 @@ function runSchedule(
     debug('调度模式')
 
     const scheduler = new SchedulerService({
-        projects: config.app.projects,
-        env: config.env,
+        fullConfig: config,
         localBackupDir,
         tempDir,
         notifyService,

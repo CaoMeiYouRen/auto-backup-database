@@ -4,10 +4,16 @@ export type {
     RetentionConfig,
     CompressConfig,
     StorageOptions,
+    SecurityConfig,
+    DatabaseConnectionConfig,
+    MongoDumpOptions,
+    BaseProjectConfig,
+    SQLiteProjectConfig,
+    MongoDBProjectConfig,
+    ConnectionProjectConfig,
     ProjectConfig,
     AppConfig,
     OSSConfig,
-    EnvConfig,
     FullConfig,
 } from './types/config'
 
@@ -17,6 +23,7 @@ export { ConfigLoader, createConfigLoader, loadConfig } from './config/loader'
 // 数据库提供者
 export { DatabaseProvider } from './providers/database'
 export type { BackupResult } from './providers/database'
+export { MongoDBProvider } from './providers/mongodb'
 export { SQLiteProvider } from './providers/sqlite'
 
 // 文件工具

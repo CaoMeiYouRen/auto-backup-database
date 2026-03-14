@@ -53,6 +53,16 @@ npm install
 ### 1. 创建配置文件 `config.yml`
 
 ```yaml
+oss:
+  region: "${OSS_REGION}"
+  accessKeyId: "${OSS_ACCESS_KEY_ID}"
+  accessKeySecret: "${OSS_ACCESS_KEY_SECRET}"
+  bucket: "${OSS_BUCKET}"
+  endpoint: "${OSS_ENDPOINT}"
+
+security:
+  backupPassword: "${BACKUP_PASSWORD}"
+
 projects:
   - name: my-app-db
     dbType: sqlite
@@ -72,13 +82,37 @@ projects:
       localEnabled: true
       remoteEnabled: true
 
+  - name: mongo-prod
+    dbType: mongodb
+    connection:
+      uri: "${MONGODB_URI}"
+      database: "${MONGODB_DATABASE:-app}"
+    dumpOptions:
+      archive: true
+      authenticationDatabase: "${MONGODB_AUTH_DB:-admin}"
+      extraArgs: []
+    backupSchedule: "0 3 * * *"
+    compress:
+      enabled: true
+      password: true
+    retention:
+      local:
+        days: 7
+        maxSize: 5GB
+      remote:
+        days: 30
+        maxSize: 20GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+
 # 通知配置（可选）
 notify:
   enabled: true
   type: Dingtalk # 支持多种推送方式，详见 push-all-in-one
   config:
-    DINGTALK_ACCESS_TOKEN: your-token
-    DINGTALK_SECRET: your-secret
+    DINGTALK_ACCESS_TOKEN: "${DINGTALK_ACCESS_TOKEN}"
+    DINGTALK_SECRET: "${DINGTALK_SECRET}"
 ```
 
 ### 2. 创建环境变量文件 `.env`
@@ -96,6 +130,12 @@ BACKUP_PASSWORD=your-secure-password
 
 # MongoDB（可选）
 MONGODB_URI=mongodb://username:password@127.0.0.1:27017/app?authSource=admin
+MONGODB_DATABASE=app
+MONGODB_AUTH_DB=admin
+
+# 通知配置（可选）
+DINGTALK_ACCESS_TOKEN=your-token
+DINGTALK_SECRET=your-secret
 ```
 
 ### 3. MongoDB 备份说明
@@ -104,7 +144,7 @@ MongoDB 备份计划基于官方 `mongodump` 工具实现：
 
 - Docker 部署时，镜像内预装 MongoDB Database Tools，无需额外安装。
 - 非 Docker 部署时，需要自行安装 MongoDB Database Tools，并确保 `mongodump --version` 可以直接执行。
-- 后续配置将扩展 `dbType: mongodb`、连接信息和 `dumpOptions`，备份产物会继续复用现有压缩、加密、本地存储和 OSS 上传流程。
+- 配置文件中的敏感值统一通过占位符从 `.env` 注入，避免在 `config.yml` 与 `.env` 之间维护两套配置结构。
 
 ## 使用
 

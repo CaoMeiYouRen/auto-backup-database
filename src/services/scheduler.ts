@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { CronJob } from 'cron'
 import Debug from 'debug'
 import { BackupService } from './backup'
-import type { ProjectConfig, EnvConfig } from '@/types/config'
+import type { FullConfig, ProjectConfig } from '@/types/config'
 import type { NotifyService } from '@/notify'
 import type { BackupTaskResult } from '@/types/backup'
 
@@ -28,10 +28,8 @@ export interface ScheduleStatus {
  * 调度器配置
  */
 export interface SchedulerConfig {
-    /** 项目配置列表 */
-    projects: ProjectConfig[]
-    /** 环境变量配置 */
-    env: EnvConfig
+    /** 完整配置 */
+    fullConfig: FullConfig
     /** 本地备份根目录 */
     localBackupDir: string
     /** 临时目录 */
@@ -61,7 +59,7 @@ export class SchedulerService {
     start(): void {
         debug('启动调度器')
 
-        for (const project of this.config.projects) {
+        for (const project of this.config.fullConfig.projects) {
             this.scheduleProject(project)
         }
 
@@ -145,7 +143,7 @@ export class SchedulerService {
         try {
             const backupService = new BackupService({
                 project,
-                env: this.config.env,
+                fullConfig: this.config.fullConfig,
                 localBackupDir: this.config.localBackupDir,
                 tempDir: this.getTempDir(project.name),
                 notifyService: this.notifyService,
@@ -182,7 +180,7 @@ export class SchedulerService {
      * 手动触发备份
      */
     async triggerBackup(projectName: string): Promise<BackupTaskResult | null> {
-        const project = this.config.projects.find((p) => p.name === projectName)
+        const project = this.config.fullConfig.projects.find((p) => p.name === projectName)
         if (!project) {
             debug(`未找到项目: ${projectName}`)
             return null

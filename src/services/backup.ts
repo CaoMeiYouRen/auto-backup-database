@@ -2,7 +2,9 @@ import { join, basename } from 'node:path'
 import { rm, copyFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import Debug from 'debug'
-import type { ProjectConfig, EnvConfig } from '@/types/config'
+import type { FullConfig, ProjectConfig } from '@/types/config'
+import { DatabaseProvider } from '@/providers/database'
+import { MongoDBProvider } from '@/providers/mongodb'
 import { SQLiteProvider } from '@/providers/sqlite'
 import { compressDirectory } from '@/utils/compress'
 import { encryptAndDelete } from '@/utils/encrypt'
@@ -19,8 +21,8 @@ const debug = Debug('backup:service')
 export interface BackupServiceConfig {
     /** 项目配置 */
     project: ProjectConfig
-    /** 环境变量配置 */
-    env: EnvConfig
+    /** 完整配置 */
+    fullConfig: FullConfig
     /** 本地备份根目录 */
     localBackupDir: string
     /** 临时目录 */
@@ -46,7 +48,7 @@ export class BackupService {
      * 执行完整的备份流程
      */
     async run(): Promise<BackupTaskResult> {
-        const { project, env, localBackupDir, tempDir } = this.config
+        const { project, fullConfig, localBackupDir, tempDir } = this.config
         debug(`开始备份项目: ${project.name}`)
 
         const result: BackupTaskResult = {
@@ -97,16 +99,16 @@ export class BackupService {
 
                 // 3. 加密（如果配置了密码）
                 if (project.compress.password) {
-                    if (!env.backupPassword) {
-                        debug('加密失败: 配置了密码加密但未在环境变量中设置 BACKUP_PASSWORD')
+                    if (!fullConfig.security?.backupPassword) {
+                        debug('加密失败: 配置了密码加密但未在配置中设置 security.backupPassword')
                         result.encrypt = {
                             success: false,
-                            error: '未设置 BACKUP_PASSWORD',
+                            error: '未设置 security.backupPassword',
                         }
                     } else {
                         const encryptResult = await encryptAndDelete(
                             compressResult.compressedFile,
-                            env.backupPassword,
+                            fullConfig.security.backupPassword,
                         )
 
                         result.encrypt = {
@@ -144,7 +146,7 @@ export class BackupService {
 
             // 5. 远程上传
             if (project.options.remoteEnabled) {
-                const remoteResult = await this.uploadToRemote(result, env)
+                const remoteResult = await this.uploadToRemote(result)
                 result.remoteUpload = remoteResult
 
                 if (!remoteResult.success) {
@@ -155,7 +157,7 @@ export class BackupService {
             }
 
             // 6. 清理旧备份
-            await this.cleanupOldBackups(result, localBackupDir, env)
+            await this.cleanupOldBackups(result, localBackupDir)
 
             // 7. 清理临时文件
             await this.cleanupTempFiles(tempDir)
@@ -184,11 +186,12 @@ export class BackupService {
     /**
      * 创建数据库提供者
      */
-    private createProvider(project: ProjectConfig): SQLiteProvider {
+    private createProvider(project: ProjectConfig): DatabaseProvider {
         switch (project.dbType) {
             case 'sqlite':
                 return new SQLiteProvider(project)
-            // 未来可扩展其他数据库类型
+            case 'mongodb':
+                return new MongoDBProvider(project)
             default:
                 throw new Error(`不支持的数据库类型: ${project.dbType}`)
         }
@@ -203,10 +206,10 @@ export class BackupService {
     ): Promise<{ success: boolean, error?: string }> {
         try {
             const { project } = this.config
-            const compressedFile = result.compress?.compressedFile
+            const artifactPath = this.getTransferSourcePath(result)
 
-            if (!compressedFile || !existsSync(compressedFile)) {
-                return { success: false, error: '压缩文件不存在' }
+            if (!artifactPath || !existsSync(artifactPath)) {
+                return { success: false, error: '备份产物不存在' }
             }
 
             const localStorage = new LocalStorage(
@@ -223,8 +226,8 @@ export class BackupService {
                 await mkdir(destDir, { recursive: true })
             }
 
-            const destFile = join(destDir, basename(compressedFile))
-            await copyFile(compressedFile, destFile)
+            const destFile = join(destDir, basename(artifactPath))
+            await copyFile(artifactPath, destFile)
 
             return { success: true }
         } catch (error) {
@@ -240,19 +243,22 @@ export class BackupService {
      */
     private async uploadToRemote(
         result: BackupTaskResult,
-        env: EnvConfig,
     ): Promise<{ success: boolean, results?: UploadResult[], error?: string }> {
         try {
-            const { project } = this.config
-            const compressedFile = result.compress?.compressedFile
+            const { project, fullConfig } = this.config
+            const artifactPath = this.getTransferSourcePath(result)
 
-            if (!compressedFile || !existsSync(compressedFile)) {
-                return { success: false, error: '压缩文件不存在' }
+            if (!artifactPath || !existsSync(artifactPath)) {
+                return { success: false, error: '备份产物不存在' }
             }
 
-            const ossStorage = new OSSStorage(env.oss, project.retention.remote, `backups/${project.name}`)
+            if (!fullConfig.oss) {
+                return { success: false, error: '缺少 oss 配置' }
+            }
 
-            const uploadResult = await ossStorage.uploadFile(compressedFile)
+            const ossStorage = new OSSStorage(fullConfig.oss, project.retention.remote, `backups/${project.name}`)
+
+            const uploadResult = await ossStorage.uploadFile(artifactPath)
 
             return {
                 success: uploadResult.success,
@@ -273,9 +279,8 @@ export class BackupService {
     private async cleanupOldBackups(
         result: BackupTaskResult,
         localBackupDir: string,
-        env: EnvConfig,
     ): Promise<void> {
-        const { project } = this.config
+        const { project, fullConfig } = this.config
 
         // 清理本地
         if (project.options.localEnabled) {
@@ -295,7 +300,12 @@ export class BackupService {
         // 清理远程
         if (project.options.remoteEnabled) {
             try {
-                const ossStorage = new OSSStorage(env.oss, project.retention.remote, `backups/${project.name}`)
+                if (!fullConfig.oss) {
+                    debug('远程清理跳过: 缺少 oss 配置')
+                    return
+                }
+
+                const ossStorage = new OSSStorage(fullConfig.oss, project.retention.remote, `backups/${project.name}`)
                 const cleanupResult = await ossStorage.cleanup()
                 result.remoteCleanup = {
                     deletedFiles: cleanupResult.deletedFiles,
@@ -347,6 +357,13 @@ export class BackupService {
         const remoteSuccess = !this.config.project.options.remoteEnabled || result.remoteUpload?.success === true
 
         return localSuccess || remoteSuccess
+    }
+
+    /**
+     * 获取可用于传输的备份产物路径
+     */
+    private getTransferSourcePath(result: BackupTaskResult): string | undefined {
+        return result.compress?.compressedFile || result.backup.backupFiles[0]
     }
 
     /**

@@ -4,12 +4,13 @@ import { existsSync } from 'node:fs'
 import { glob } from 'glob'
 import dayjs from 'dayjs'
 import { DatabaseProvider, type BackupResult } from './database'
+import type { SQLiteProjectConfig } from '@/types/config'
 
 /**
  * SQLite 数据库提供者
  * 通过文件拷贝实现备份
  */
-export class SQLiteProvider extends DatabaseProvider {
+export class SQLiteProvider extends DatabaseProvider<SQLiteProjectConfig> {
     readonly type = 'sqlite' as const
 
     /**

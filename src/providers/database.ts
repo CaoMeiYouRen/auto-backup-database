@@ -20,10 +20,10 @@ export interface BackupResult {
  * 数据库提供者抽象类
  * 定义数据库备份的标准接口
  */
-export abstract class DatabaseProvider {
-    protected config: ProjectConfig
+export abstract class DatabaseProvider<TConfig extends ProjectConfig = ProjectConfig> {
+    protected config: TConfig
 
-    constructor(config: ProjectConfig) {
+    constructor(config: TConfig) {
         this.config = config
     }
 
