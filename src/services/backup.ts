@@ -206,10 +206,15 @@ export class BackupService {
     ): Promise<{ success: boolean, error?: string }> {
         try {
             const { project } = this.config
-            const artifactPath = this.getTransferSourcePath(result)
+            const artifactPaths = this.getTransferSourcePaths(result)
 
-            if (!artifactPath || !existsSync(artifactPath)) {
+            if (artifactPaths.length === 0) {
                 return { success: false, error: '备份产物不存在' }
+            }
+
+            const missingArtifact = artifactPaths.find((artifactPath) => !existsSync(artifactPath))
+            if (missingArtifact) {
+                return { success: false, error: `备份产物不存在: ${missingArtifact}` }
             }
 
             const localStorage = new LocalStorage(
@@ -226,8 +231,10 @@ export class BackupService {
                 await mkdir(destDir, { recursive: true })
             }
 
-            const destFile = join(destDir, basename(artifactPath))
-            await copyFile(artifactPath, destFile)
+            for (const artifactPath of artifactPaths) {
+                const destFile = join(destDir, basename(artifactPath))
+                await copyFile(artifactPath, destFile)
+            }
 
             return { success: true }
         } catch (error) {
@@ -246,10 +253,15 @@ export class BackupService {
     ): Promise<{ success: boolean, results?: UploadResult[], error?: string }> {
         try {
             const { project, fullConfig } = this.config
-            const artifactPath = this.getTransferSourcePath(result)
+            const artifactPaths = this.getTransferSourcePaths(result)
 
-            if (!artifactPath || !existsSync(artifactPath)) {
+            if (artifactPaths.length === 0) {
                 return { success: false, error: '备份产物不存在' }
+            }
+
+            const missingArtifact = artifactPaths.find((artifactPath) => !existsSync(artifactPath))
+            if (missingArtifact) {
+                return { success: false, error: `备份产物不存在: ${missingArtifact}` }
             }
 
             if (!fullConfig.oss) {
@@ -258,12 +270,15 @@ export class BackupService {
 
             const ossStorage = new OSSStorage(fullConfig.oss, project.retention.remote, `backups/${project.name}`)
 
-            const uploadResult = await ossStorage.uploadFile(artifactPath)
+            const uploadResults = await ossStorage.uploadFiles(artifactPaths)
+            const failedResults = uploadResults.filter((uploadResult) => !uploadResult.success)
 
             return {
-                success: uploadResult.success,
-                results: [uploadResult],
-                error: uploadResult.error,
+                success: failedResults.length === 0,
+                results: uploadResults,
+                error: failedResults.length > 0
+                    ? failedResults.map((uploadResult) => uploadResult.error || uploadResult.key).join('; ')
+                    : undefined,
             }
         } catch (error) {
             return {
@@ -362,8 +377,12 @@ export class BackupService {
     /**
      * 获取可用于传输的备份产物路径
      */
-    private getTransferSourcePath(result: BackupTaskResult): string | undefined {
-        return result.compress?.compressedFile || result.backup.backupFiles[0]
+    private getTransferSourcePaths(result: BackupTaskResult): string[] {
+        if (result.compress?.compressedFile) {
+            return [result.compress.compressedFile]
+        }
+
+        return result.backup.backupFiles
     }
 
     /**

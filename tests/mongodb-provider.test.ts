@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const execFileMock = vi.fn()
+const { execFileMock } = vi.hoisted(() => ({
+    execFileMock: vi.fn(),
+}))
 
 vi.mock('node:child_process', () => ({
     execFile: execFileMock,
