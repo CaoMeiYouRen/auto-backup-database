@@ -15,6 +15,16 @@ import { BackupService } from '@/services/backup'
 import { OSSStorage } from '@/storage/oss'
 import type { FullConfig, MongoDBProjectConfig, SQLiteProjectConfig } from '@/types/config'
 
+function getProjectBackupDirs(projectDir: string): string[] {
+    return readdirSync(projectDir).sort()
+}
+
+function getOnlyBackupDir(projectDir: string): string {
+    const backupDirs = getProjectBackupDirs(projectDir)
+    expect(backupDirs).toHaveLength(1)
+    return backupDirs[0]
+}
+
 describe('BackupService', () => {
     let tempRoot: string
     let sourceDir: string
@@ -102,7 +112,9 @@ describe('BackupService', () => {
         expect(result.overallSuccess).toBe(true)
         expect(result.backup.success).toBe(true)
         expect(result.localUpload?.success).toBe(true)
-        expect(readdirSync(join(localBackupDir, project.name)).sort()).toEqual(['app.db', 'cache.db'])
+        const projectBackupDir = join(localBackupDir, project.name)
+        const backupDir = getOnlyBackupDir(projectBackupDir)
+        expect(readdirSync(join(projectBackupDir, backupDir)).sort()).toEqual(['app.db', 'cache.db'])
         expect(existsSync(tempDir)).toBe(false)
     })
 
@@ -222,8 +234,75 @@ describe('BackupService', () => {
         expect(result.compress?.success).toBe(true)
         expect(result.localUpload?.success).toBe(true)
         expect(result.overallSuccess).toBe(true)
-        expect(readdirSync(join(localBackupDir, project.name)).some((fileName) => fileName.endsWith('.tar.gz'))).toBe(true)
+        const projectBackupDir = join(localBackupDir, project.name)
+        const backupDir = getOnlyBackupDir(projectBackupDir)
+        expect(readdirSync(join(projectBackupDir, backupDir)).some((fileName) => fileName.endsWith('.tar.gz'))).toBe(true)
         expect(existsSync(tempDir)).toBe(false)
+    })
+
+    it('应该为每次本地压缩备份保留独立目录，避免同名文件覆盖', async () => {
+        writeFileSync(join(sourceDir, 'app.db'), 'app-data')
+
+        const project: SQLiteProjectConfig = {
+            name: 'sqlite-versioned',
+            dbType: 'sqlite',
+            dbPath: `${sourceDir.replace(/\\/g, '/')}/*.db`,
+            backupSchedule: '0 2 * * *',
+            compress: {
+                enabled: true,
+                password: false,
+            },
+            retention: {
+                local: {
+                    days: 30,
+                    maxSize: '10GB',
+                },
+                remote: {
+                    days: 30,
+                    maxSize: '10GB',
+                },
+            },
+            options: {
+                localEnabled: true,
+                remoteEnabled: false,
+            },
+        }
+
+        const fullConfig: FullConfig = {
+            projects: [project],
+        }
+
+        const firstService = new BackupService({
+            project,
+            fullConfig,
+            localBackupDir,
+            tempDir: join(tempRoot, 'temp-sqlite-versioned-1'),
+        })
+
+        const secondService = new BackupService({
+            project,
+            fullConfig,
+            localBackupDir,
+            tempDir: join(tempRoot, 'temp-sqlite-versioned-2'),
+        })
+
+        const firstResult = await firstService.run()
+        const secondResult = await secondService.run()
+
+        expect(firstResult.overallSuccess).toBe(true)
+        expect(secondResult.overallSuccess).toBe(true)
+
+        const projectBackupDir = join(localBackupDir, project.name)
+        const backupDirs = getProjectBackupDirs(projectBackupDir)
+
+        expect(backupDirs).toHaveLength(2)
+        for (const backupDir of backupDirs) {
+            expect(
+                readdirSync(join(projectBackupDir, backupDir)).some(
+                    (fileName) => fileName === `${project.name}-backup.tar.gz`,
+                ),
+            ).toBe(true)
+        }
     })
 
     it('应该在缺少加密密码时终止 MongoDB 备份流程', async () => {

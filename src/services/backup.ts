@@ -2,6 +2,7 @@ import { join, basename } from 'node:path'
 import { rm, copyFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import Debug from 'debug'
+import dayjs from 'dayjs'
 import type { FullConfig, ProjectConfig } from '@/types/config'
 import { DatabaseProvider } from '@/providers/database'
 import { MongoDBProvider } from '@/providers/mongodb'
@@ -224,12 +225,10 @@ export class BackupService {
 
             await localStorage.ensureDir()
 
-            // 这里需要将压缩文件移动到本地存储目录
-            // 由于 LocalStorage 主要管理目录，我们直接复制文件
-            const destDir = join(localBackupDir, project.name)
-            if (!existsSync(destDir)) {
-                await mkdir(destDir, { recursive: true })
-            }
+            // 每次备份落到独立时间目录，避免压缩/加密后的固定文件名覆盖历史备份
+            const backupTimestamp = dayjs(result.backup.timestamp).format('YYYY-MM-DD_HH-mm-ss_SSS')
+            const destDir = join(localBackupDir, project.name, backupTimestamp)
+            await mkdir(destDir, { recursive: true })
 
             for (const artifactPath of artifactPaths) {
                 const destFile = join(destDir, basename(artifactPath))
