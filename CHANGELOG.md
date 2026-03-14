@@ -1,5 +1,12 @@
 # auto-backup-database
 
+# [1.4.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.3.0...v1.4.0) (2026-03-14)
+
+
+### ✨ 新功能
+
+* **backup:** 为每次本地压缩备份保留独立目录，避免同名文件覆盖 ([eec826f](https://github.com/CaoMeiYouRen/auto-backup-database/commit/eec826f))
+
 # [1.3.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.2.2...v1.3.0) (2026-03-14)
 
 
