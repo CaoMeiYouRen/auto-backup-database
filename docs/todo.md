@@ -30,23 +30,26 @@
 - [x] 编写单元测试 (`tests/config.test.ts`, `tests/storage.test.ts`)
 - [x] 完善 `README.md` 使用手册
 
-## 阶段 6: 扩展 (待定)
+# 阶段 6：添加 MongoDB 支持 和 统一配置入口
+- [x] 统一配置入口：以 `config.yml` 为主，`.env` 作为可选变量注入源
+- [x] 设计并实现占位符解析，支持 `${VAR}` 与 `${VAR:-default}`
+- [x] 在 YAML 解析后的对象树上做变量替换，避免结构注入
+- [x] 增加缺失变量、默认值、特殊字符与转义场景测试
+- [x] 外部命令执行改为安全参数传递，避免拼接完整 Shell 命令字符串
+- [x] 添加 MongoDB 支持
+- [x] 设计并实现 `MongoDBProvider`
+- [x] 扩展 `ProjectConfig`，支持 MongoDB 连接信息与 `dumpOptions`
+- [x] 在配置加载阶段增加按 `dbType` 的条件校验
+- [x] 在 `BackupService.createProvider()` 中接入 `mongodb` 分支
+- [x] 基于 `mongodump` 实现 BSON 归档导出
+- [x] 增加 `mongodump` 可用性检测，并在缺失时给出清晰报错
+- [ ] 处理 `mongodump --gzip` 与项目压缩流程的冲突策略
+- [x] 为 Docker 运行镜像预装 MongoDB Database Tools
+- [x] 在 README 中补充 MongoDB 备份依赖与配置示例
+- [x] 为 MongoDBProvider 编写单元测试与集成测试
+
+
+## 未来扩展 (待定)
 - [ ] 添加 MySQL 支持
 - [ ] 添加 PostgreSQL 支持
-- [ ] 统一配置入口：以 `config.yml` 为主，`.env` 作为可选变量注入源
-- [ ] 设计并实现占位符解析，支持 `${VAR}` 与 `${VAR:-default}`
-- [ ] 在 YAML 解析后的对象树上做变量替换，避免结构注入
-- [ ] 增加缺失变量、默认值、特殊字符与转义场景测试
-- [ ] 外部命令执行改为安全参数传递，避免拼接完整 Shell 命令字符串
-- [ ] 添加 MongoDB 支持
-- [ ] 设计并实现 `MongoDBProvider`
-- [ ] 扩展 `ProjectConfig`，支持 MongoDB 连接信息与 `dumpOptions`
-- [ ] 在配置加载阶段增加按 `dbType` 的条件校验
-- [ ] 在 `BackupService.createProvider()` 中接入 `mongodb` 分支
-- [ ] 基于 `mongodump` 实现 BSON 归档导出
-- [ ] 增加 `mongodump` 可用性检测，并在缺失时给出清晰报错
-- [ ] 处理 `mongodump --gzip` 与项目压缩流程的冲突策略
-- [ ] 为 Docker 运行镜像预装 MongoDB Database Tools
-- [ ] 在 README 中补充 MongoDB 备份依赖与配置示例
-- [ ] 为 MongoDBProvider 编写单元测试与集成测试
 - [ ] 更多 OSS 渠道支持 (S3, 腾讯云, 百度云等)
