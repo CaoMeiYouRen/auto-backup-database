@@ -2,7 +2,7 @@ import { execFile as execFileCallback } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
+import { inspect, promisify } from 'node:util'
 import dayjs from 'dayjs'
 import { DatabaseProvider, type BackupResult } from './database'
 import type { MongoDBProjectConfig } from '@/types/config'
@@ -35,8 +35,8 @@ export class MongoDBProvider extends DatabaseProvider<MongoDBProjectConfig> {
     /**
      * MongoDB 不存在源文件列表，返回空数组以保持接口兼容
      */
-    async getDatabaseFiles(): Promise<string[]> {
-        return []
+    getDatabaseFiles(): Promise<string[]> {
+        return Promise.resolve([])
     }
 
     /**
@@ -148,6 +148,6 @@ export class MongoDBProvider extends DatabaseProvider<MongoDBProjectConfig> {
             return execError.stderr?.trim() || execError.stdout?.trim() || execError.message
         }
 
-        return String(error)
+        return inspect(error)
     }
 }

@@ -86,6 +86,33 @@ export interface MongoDumpOptions {
 }
 
 /**
+ * PostgreSQL dump 格式
+ */
+export type PostgresDumpFormat = 'plain' | 'custom' | 'tar'
+
+/**
+ * PostgreSQL dump 选项
+ */
+export interface PostgresDumpOptions {
+    /** 输出格式，默认为 custom */
+    format?: PostgresDumpFormat
+    /** pg_dump 内置压缩级别，0 表示禁用 */
+    compression?: number
+    /** 仅导出结构 */
+    schemaOnly?: boolean
+    /** 仅导出数据 */
+    dataOnly?: boolean
+    /** 恢复前清理对象 */
+    clean?: boolean
+    /** 在导出中包含 CREATE DATABASE */
+    create?: boolean
+    /** 恢复时不设置 owner */
+    noOwner?: boolean
+    /** 额外参数 */
+    extraArgs?: string[]
+}
+
+/**
  * 基础项目配置
  */
 export interface BaseProjectConfig {
@@ -129,11 +156,23 @@ export interface MongoDBProjectConfig extends BaseProjectConfig {
 }
 
 /**
+ * PostgreSQL 项目配置
+ */
+export interface PostgreSQLProjectConfig extends BaseProjectConfig {
+    /** 数据库类型 */
+    dbType: 'postgresql'
+    /** 连接配置 */
+    connection: DatabaseConnectionConfig
+    /** dump 选项 */
+    dumpOptions?: PostgresDumpOptions
+}
+
+/**
  * 预留的连接型数据库配置
  */
 export interface ConnectionProjectConfig extends BaseProjectConfig {
     /** 数据库类型 */
-    dbType: 'mysql' | 'postgresql'
+    dbType: 'mysql'
     /** 连接配置 */
     connection?: DatabaseConnectionConfig
     /** 扩展选项 */
@@ -145,7 +184,7 @@ export interface ConnectionProjectConfig extends BaseProjectConfig {
 /**
  * 项目配置
  */
-export type ProjectConfig = SQLiteProjectConfig | MongoDBProjectConfig | ConnectionProjectConfig
+export type ProjectConfig = SQLiteProjectConfig | MongoDBProjectConfig | PostgreSQLProjectConfig | ConnectionProjectConfig
 
 /**
  * 应用配置（展开后的统一配置对象）

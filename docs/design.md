@@ -11,6 +11,7 @@
 - **数据库备份工具**:
     - SQLite: 基于文件系统直接复制
     - MongoDB: 基于 [MongoDB Database Tools](https://www.mongodb.com/zh-cn/docs/database-tools/) 的 `mongodump`
+    - PostgreSQL: 基于 PostgreSQL Client Tools 的 `pg_dump`
 - **配置文件**: YAML (配置项目列表), `.env` (管理敏感信息如 OSS 密钥、数据库密码)
 - **核心依赖**:
     - `yaml`: 解析配置文件
@@ -27,7 +28,8 @@
 - **多数据库支持**:
     - 采用插件式/抽象类设计，默认实现 **SQLite**。
     - MongoDB 通过 `mongodump` 导出 BSON 归档，优先支持副本集/单节点场景。
-    - 预留接口继续支持 **MySQL**, **PostgreSQL** 等。
+    - PostgreSQL 通过 `pg_dump` 导出单文件归档，兼顾常规全量备份与后续 `pg_restore` 恢复。
+    - 预留接口继续支持 **MySQL** 等。
 - **灵活备份策略**:
     - 支持 Glob 语法批量匹配数据库文件。
     - 自定义备份周期 (Cron 表达式)。
@@ -109,7 +111,7 @@ security:
 - 统一配置对象生成后，再按数据库类型和功能开关执行条件校验。
 - 如果占位符引用的必填环境变量缺失，应在启动阶段直接失败，并明确指出缺失的变量名和对应配置字段。
 - 如果提供了默认值，则校验逻辑只检查默认值展开后的最终结果。
-- 对远程备份、加密、MongoDB 等功能，只有在相关功能启用时才校验对应字段。
+- 对远程备份、加密、MongoDB、PostgreSQL 等功能，只有在相关功能启用时才校验对应字段。
 
 ## 5. MongoDB 备份设计
 
@@ -199,8 +201,97 @@ mongodump \
 - 日志中应记录最终执行的参数摘要，但必须脱敏 URI 中的用户名、密码等敏感信息。
 - 通知消息应能区分“数据库备份失败”和“后续上传失败”。
 
-## 6. 系统架构
-### 6.1 配置文件结构 (config.yml)
+## 6. PostgreSQL 备份设计
+
+### 6.1 方案选择
+- 使用 PostgreSQL 官方 `pg_dump` 作为备份引擎，而不是通过 ORM 或驱动自行导出表结构与数据。
+- 选择 `pg_dump` 的原因：
+    - 官方工具，兼容 PostgreSQL 版本演进与对象类型差异。
+    - 支持 plain、custom、tar 等多种格式，便于兼顾审阅、归档与恢复。
+    - 与 `pg_restore` 配套，适合后续补充恢复能力。
+- 当前阶段聚焦“单数据库逻辑备份”，不覆盖整实例级别的角色、表空间与多库导出；若有整实例需求，后续再补 `pg_dumpall` 方案。
+
+### 6.2 运行时依赖策略
+- **Docker 环境**: 在运行镜像中预装 PostgreSQL Client Tools，开箱即用。
+- **非 Docker 环境**: 不在 npm 依赖中打包客户端工具，要求用户自行安装 `pg_dump` 并加入系统 `PATH`。
+- 程序启动或任务执行前需要检测 `pg_dump` 是否可用；若不可用，应返回明确错误并提示安装方式。
+
+### 6.3 配置模型扩展
+PostgreSQL 采用连接型数据库配置，与 MongoDB 一样使用 `connection` 和 `dumpOptions`，但语义按 `pg_dump` 调整。
+
+```yaml
+projects:
+    - name: postgres-prod
+        dbType: postgresql
+        connection:
+            uri: "${POSTGRESQL_URI}"
+            database: "${POSTGRESQL_DATABASE:-app}"
+        dumpOptions:
+            format: custom
+            compression: 0
+            noOwner: true
+            extraArgs: []
+        backupSchedule: "0 4 * * *"
+        compress:
+            enabled: true
+            password: true
+        retention:
+            local:
+                days: 7
+                maxSize: 5GB
+            remote:
+                days: 30
+                maxSize: 20GB
+        options:
+            localEnabled: true
+            remoteEnabled: true
+```
+
+约束如下：
+- PostgreSQL 必须提供单个数据库名，可以直接写在 `connection.uri` 中，也可以通过 `connection.database` 补充。
+- 默认格式采用 `custom`，生成单文件 `.dump`，便于后续使用 `pg_restore`。
+- 若启用项目级 `compress.enabled`，则默认将 `pg_dump` 的 `compression` 视为 `0`，避免双重压缩。
+- 若显式配置 `dumpOptions.compression > 0` 且项目级压缩已开启，应在配置校验阶段直接报错。
+- `tar` 格式不支持 `pg_dump` 内置压缩，应在校验阶段阻止无效组合。
+
+### 6.4 PostgreSQLProvider 设计
+- 新增 `PostgreSQLProvider`，继承 `DatabaseProvider`。
+- `validatePath()` 对 PostgreSQL 语义上调整为校验连接配置和 `pg_dump` 可执行文件可用性。
+- `getDatabaseFiles()` 对 PostgreSQL 不再表示源数据库文件列表，返回空数组以保持抽象层兼容。
+- `backup(outputDir)` 的核心流程：
+    1. 构造本次备份输出目录。
+    2. 根据 `dumpOptions.format` 选择输出文件后缀（`.sql` / `.dump` / `.tar`）。
+    3. 组装 `pg_dump` 参数。
+    4. 以参数数组方式执行 `pg_dump --dbname=<uri> --file=<path> --format=<format>`。
+    5. 输出单个归档文件并复用现有压缩、加密、本地存储、OSS 上传、生命周期清理流程。
+
+建议默认命令形态：
+
+```bash
+pg_dump \
+    --dbname="postgresql://postgres:password@127.0.0.1:5432/app" \
+    --file="/tmp/backup/postgres-prod/2026-03-26_04-00-00/postgres-prod-2026-03-26_04-00-00.dump" \
+    --format=custom \
+    --compress=0
+```
+
+### 6.5 与现有备份流水线的集成
+- `BackupService.createProvider()` 增加 `postgresql` 分支。
+- 压缩层保持不变：PostgreSQL 备份结果仍作为普通文件进入现有统一压缩接口。
+- 本地与远程生命周期清理继续复用 `LocalStorage` 与 `OSSStorage`，无需为 PostgreSQL 单独实现。
+- `config.example.yml`、README 与 Dockerfile 需要同步增加 PostgreSQL 的依赖与示例。
+
+### 6.6 异常处理与可观测性
+- 以下场景需要给出明确错误信息：
+    - `pg_dump` 未安装或不在 `PATH` 中。
+    - URI 无法连接、认证失败、权限不足。
+    - 未指定数据库名。
+    - 用户显式配置了不兼容的压缩/格式组合。
+- 日志中应记录最终执行参数的摘要，但必须避免输出明文密码。
+- 通知消息应能区分“数据库备份失败”和“后续上传失败”。
+
+## 7. 系统架构
+### 7.1 配置文件结构 (config.yml)
 ```yaml
 oss:
     region: "${OSS_REGION}"
@@ -255,6 +346,31 @@ projects:
             localEnabled: true
             remoteEnabled: true
 
+    - name: postgres-prod
+        dbType: postgresql
+        connection:
+            uri: "${POSTGRESQL_URI}"
+            database: "${POSTGRESQL_DATABASE:-app}"
+        dumpOptions:
+            format: custom
+            compression: 0
+            noOwner: true
+            extraArgs: []
+        backupSchedule: "0 4 * * *"
+        compress:
+            enabled: true
+            password: true
+        retention:
+            local:
+                days: 7
+                maxSize: 5GB
+            remote:
+                days: 30
+                maxSize: 20GB
+        options:
+            localEnabled: true
+            remoteEnabled: true
+
 notify:
     enabled: true
     type: Dingtalk
@@ -265,7 +381,7 @@ notify:
         msgtype: markdown
 ```
 
-### 6.2 环境变量 (.env)
+### 7.2 环境变量 (.env)
 ```env
 # OSS 配置
 OSS_REGION=oss-cn-hangzhou
@@ -281,13 +397,18 @@ BACKUP_PASSWORD=your-secure-password
 MONGODB_URI=mongodb://username:password@127.0.0.1:27017/app?authSource=admin
 MONGODB_DATABASE=app
 MONGODB_AUTH_DB=admin
+
+# PostgreSQL 配置
+POSTGRESQL_URI=postgresql://postgres:password@127.0.0.1:5432
+POSTGRESQL_DATABASE=app
 ```
 
-### 6.3 核心模块设计
+### 7.3 核心模块设计
 - **`ConfigLoader`**: 加载 `.env`，解析 `config.yml`，展开占位符，产出统一配置对象并执行校验。
 - **`DatabaseProvider`**: 抽象类，定义 `backup()` 方法。
     - `SQLiteProvider`: 实现文件直接拷贝备份。
     - `MongoDBProvider`: 调用 `mongodump` 生成归档文件。
+    - `PostgreSQLProvider`: 调用 `pg_dump` 生成单文件归档。
 - **`BackupService`**: 核心逻辑流。
     1. 触发备份。
     2. 压缩/加密。
@@ -300,17 +421,19 @@ MONGODB_AUTH_DB=admin
 - **`NotifyService`**:
     - 基于 `push-all-in-one` 实现，负责备份成功、失败、清理等事件的消息推送。
 
-## 7. 部署说明
+## 8. 部署说明
 - **Docker**:
     - 挂载 `config.yml` 和 `.env` 到 `/app/config/`。
     - 挂载需要备份的数据库文件夹到容器内。
     - 挂载本地备份输出路径。
-    - 运行镜像内预装 `mongodump`，可直接执行 MongoDB 备份。
+    - 运行镜像内预装 `mongodump` 与 `pg_dump`，可直接执行 MongoDB / PostgreSQL 备份。
 - **非 Docker**:
     - 需要用户自行安装 MongoDB Database Tools。
     - 需要确保 `mongodump --version` 可以在终端直接执行。
+    - 需要用户自行安装 PostgreSQL Client Tools。
+    - 需要确保 `pg_dump --version` 可以在终端直接执行。
 
-## 8. 后续扩展性
+## 9. 后续扩展性
 - **消息通知**: 备份成功/失败发送到 Webhook (通知、企业微信、飞书等)。
 - **监控**: 对接 Prometheus 展示备份状态。
 - **恢复能力**: 后续可补充 `mongorestore` 驱动的恢复命令与演练文档。

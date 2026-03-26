@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import type { FullConfig, ProjectConfig } from '@/types/config'
 import { DatabaseProvider } from '@/providers/database'
 import { MongoDBProvider } from '@/providers/mongodb'
+import { PostgreSQLProvider } from '@/providers/postgresql'
 import { SQLiteProvider } from '@/providers/sqlite'
 import { compressDirectory } from '@/utils/compress'
 import { encryptAndDelete } from '@/utils/encrypt'
@@ -193,6 +194,8 @@ export class BackupService {
                 return new SQLiteProvider(project)
             case 'mongodb':
                 return new MongoDBProvider(project)
+            case 'postgresql':
+                return new PostgreSQLProvider(project)
             default:
                 throw new Error(`不支持的数据库类型: ${project.dbType}`)
         }

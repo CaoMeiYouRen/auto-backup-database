@@ -48,8 +48,20 @@
 - [x] 在 README 中补充 MongoDB 备份依赖与配置示例
 - [x] 为 MongoDBProvider 编写单元测试与集成测试
 
+# 阶段 7：添加 PostgreSQL 支持
+- [x] 设计 PostgreSQL 备份方案，明确 Docker 预装与宿主机预安装策略
+- [x] 扩展 `ProjectConfig`，支持 PostgreSQL 连接信息与 `dumpOptions`
+- [x] 在配置加载阶段增加 PostgreSQL 条件校验
+- [x] 设计并实现 `PostgreSQLProvider`
+- [x] 在 `BackupService.createProvider()` 中接入 `postgresql` 分支
+- [x] 基于 `pg_dump` 实现 PostgreSQL 单文件归档导出
+- [x] 增加 `pg_dump` 可用性检测，并在缺失时给出清晰报错
+- [x] 处理 `pg_dump` 内置压缩与项目压缩流程的冲突策略
+- [x] 为 Docker 运行镜像预装 PostgreSQL Client Tools
+- [x] 在 README 与设计文档中补充 PostgreSQL 备份依赖与配置示例
+- [x] 为 PostgreSQLProvider 编写单元测试
+
 
 ## 未来扩展 (待定)
 - [ ] 添加 MySQL 支持
-- [ ] 添加 PostgreSQL 支持
 - [ ] 更多 OSS 渠道支持 (S3, 腾讯云, 百度云等)

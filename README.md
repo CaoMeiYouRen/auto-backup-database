@@ -23,7 +23,7 @@
 
 ## 功能特性
 
-- **多数据库支持**: SQLite（已实现）、MongoDB（设计已补充，待实现）、MySQL、PostgreSQL（计划中）
+- **多数据库支持**: SQLite、MongoDB、PostgreSQL（已实现），MySQL（计划中）
 - **Glob 匹配**: 支持 Glob 语法批量匹配数据库文件
 - **压缩加密**: 自动压缩备份文件，支持可选的密码加密
 - **本地 + 远程存储**: 同时支持本地备份和 OSS/S3 远程备份
@@ -37,6 +37,7 @@
 - tar（用于压缩）
 - openssl（用于加密，可选）
 - MongoDB Database Tools（仅在启用 MongoDB 备份时需要；Docker 镜像内已预装，宿主机部署需自行安装并确保 `mongodump` 可执行）
+- PostgreSQL Client Tools（仅在启用 PostgreSQL 备份时需要；Docker 镜像内已预装，宿主机部署需自行安装并确保 `pg_dump` 可执行）
 
 ## 安装
 
@@ -106,6 +107,31 @@ projects:
       localEnabled: true
       remoteEnabled: true
 
+  - name: postgres-prod
+    dbType: postgresql
+    connection:
+      uri: "${POSTGRESQL_URI}"
+      database: "${POSTGRESQL_DATABASE:-app}"
+    dumpOptions:
+      format: custom
+      compression: 0
+      noOwner: true
+      extraArgs: []
+    backupSchedule: "0 4 * * *"
+    compress:
+      enabled: true
+      password: true
+    retention:
+      local:
+        days: 7
+        maxSize: 5GB
+      remote:
+        days: 30
+        maxSize: 20GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+
 # 通知配置（可选）
 notify:
   enabled: true
@@ -133,6 +159,10 @@ MONGODB_URI=mongodb://username:password@127.0.0.1:27017/app?authSource=admin
 MONGODB_DATABASE=app
 MONGODB_AUTH_DB=admin
 
+# PostgreSQL（可选）
+POSTGRESQL_URI=postgresql://postgres:password@127.0.0.1:5432
+POSTGRESQL_DATABASE=app
+
 # 通知配置（可选）
 DINGTALK_ACCESS_TOKEN=your-token
 DINGTALK_SECRET=your-secret
@@ -145,6 +175,16 @@ MongoDB 备份计划基于官方 `mongodump` 工具实现：
 - Docker 部署时，镜像内预装 MongoDB Database Tools，无需额外安装。
 - 非 Docker 部署时，需要自行安装 MongoDB Database Tools，并确保 `mongodump --version` 可以直接执行。
 - 配置文件中的敏感值统一通过占位符从 `.env` 注入，避免在 `config.yml` 与 `.env` 之间维护两套配置结构。
+
+### 4. PostgreSQL 备份说明
+
+PostgreSQL 备份基于官方 `pg_dump` 工具实现：
+
+- Docker 部署时，镜像内预装 PostgreSQL Client Tools，无需额外安装。
+- 非 Docker 部署时，需要自行安装 PostgreSQL Client Tools，并确保 `pg_dump --version` 可以直接执行。
+- 默认使用单文件 `custom` 格式导出，便于后续通过 `pg_restore` 做选择性恢复。
+- 当项目级 `compress.enabled` 开启时，默认关闭 `pg_dump` 内置压缩，避免重复压缩；若显式设置 `dumpOptions.compression > 0`，将被视为配置冲突。
+- PostgreSQL 备份必须提供数据库名，可以放在 `connection.uri` 中，也可以通过 `connection.database` 单独指定。
 
 ## 使用
 
@@ -231,6 +271,8 @@ src/
 │   └── loader.ts       # 配置加载器
 ├── providers/
 │   ├── database.ts     # 数据库提供者抽象类
+│   ├── mongodb.ts      # MongoDB 提供者
+│   ├── postgresql.ts   # PostgreSQL 提供者
 │   └── sqlite.ts       # SQLite 提供者
 ├── services/
 │   ├── backup.ts       # 备份服务

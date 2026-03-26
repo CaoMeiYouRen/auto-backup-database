@@ -141,6 +141,35 @@ export class ConfigLoader {
                     throw new Error(`项目 "${project.name}" 配置错误: dumpOptions.gzip 与 compress.enabled 不能同时启用`)
                 }
                 break
+            case 'postgresql': {
+                if (!project.connection?.uri) {
+                    throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 缺少 connection.uri 字段`)
+                }
+
+                if (!project.connection.database && !this.hasDatabaseNameInConnection(project.connection.uri)) {
+                    throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 需要在 connection.uri 或 connection.database 中提供数据库名`)
+                }
+
+                if (project.dumpOptions?.schemaOnly && project.dumpOptions?.dataOnly) {
+                    throw new Error(`项目 "${project.name}" 配置错误: dumpOptions.schemaOnly 与 dumpOptions.dataOnly 不能同时启用`)
+                }
+
+                const compression = project.dumpOptions?.compression
+                if (compression !== undefined) {
+                    if (!Number.isInteger(compression) || compression < 0 || compression > 9) {
+                        throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL dumpOptions.compression 必须是 0-9 之间的整数`)
+                    }
+
+                    if (compression > 0 && project.compress.enabled) {
+                        throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL dumpOptions.compression 与 compress.enabled 不能同时启用`)
+                    }
+
+                    if (project.dumpOptions?.format === 'tar' && compression > 0) {
+                        throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL tar 格式不支持内置压缩`)
+                    }
+                }
+                break
+            }
             default:
                 break
         }
@@ -220,6 +249,22 @@ export class ConfigLoader {
         })
 
         return resolved.replace(/\\\$\{/g, '${')
+    }
+
+    /**
+     * 判断连接串中是否已经包含数据库名
+     */
+    private hasDatabaseNameInConnection(uri: string): boolean {
+        try {
+            const parsed = new URL(uri)
+            if (parsed.pathname && parsed.pathname !== '/') {
+                return true
+            }
+
+            return parsed.searchParams.has('dbname')
+        } catch {
+            return /(?:^|\s)dbname\s*=\s*[^\s]+/.test(uri)
+        }
     }
 }
 

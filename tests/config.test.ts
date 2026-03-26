@@ -290,4 +290,102 @@ projects:
 
         expect(() => loader.load()).toThrow('dumpOptions.gzip 与 compress.enabled 不能同时启用')
     })
+
+    it('应该校验 PostgreSQL 必须提供数据库名', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: postgres-db
+    dbType: postgresql
+    connection:
+      uri: "postgresql://postgres:secret@127.0.0.1:5432"
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: false
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('PostgreSQL 需要在 connection.uri 或 connection.database 中提供数据库名')
+    })
+
+    it('应该校验 PostgreSQL 内置压缩与项目压缩冲突', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: postgres-db
+    dbType: postgresql
+    connection:
+      uri: "postgresql://postgres:secret@127.0.0.1:5432/app"
+    dumpOptions:
+      format: custom
+      compression: 6
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('PostgreSQL dumpOptions.compression 与 compress.enabled 不能同时启用')
+    })
+
+    it('应该支持带默认数据库名的 PostgreSQL 配置', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: postgres-db
+    dbType: postgresql
+    connection:
+      uri: "\${POSTGRESQL_URI}"
+      database: "\${POSTGRESQL_DATABASE:-app}"
+    dumpOptions:
+      format: custom
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, 'POSTGRESQL_URI=postgresql://postgres:secret@127.0.0.1:5432\n')
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
+
+        expect(config.projects[0].dbType).toBe('postgresql')
+        if (config.projects[0].dbType === 'postgresql') {
+            expect(config.projects[0].connection.database).toBe('app')
+            expect(config.projects[0].dumpOptions?.format).toBe('custom')
+        }
+    })
 })
