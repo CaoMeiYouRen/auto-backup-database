@@ -1,5 +1,13 @@
 # auto-backup-database
 
+# [1.5.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.4.0...v1.5.0) (2026-03-26)
+
+
+### ✨ 新功能
+
+* **mysql:** 添加 MySQL 备份支持 ([b5ff123](https://github.com/CaoMeiYouRen/auto-backup-database/commit/b5ff123))
+* **postgresql:** 添加 PostgreSQL 备份支持 ([120b828](https://github.com/CaoMeiYouRen/auto-backup-database/commit/120b828))
+
 # [1.4.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.3.0...v1.4.0) (2026-03-14)
 
 
