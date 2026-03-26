@@ -291,6 +291,104 @@ projects:
         expect(() => loader.load()).toThrow('dumpOptions.gzip 与 compress.enabled 不能同时启用')
     })
 
+    it('应该校验 MySQL 必须指定备份目标', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: mysql-db
+    dbType: mysql
+    connection:
+      uri: "mysql://root:secret@127.0.0.1:3306"
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: false
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('MySQL 需要开启 dumpOptions.allDatabases，或在 connection.uri / connection.database / dumpOptions.databases 中指定备份目标')
+    })
+
+    it('应该校验 MySQL tables 仅支持单数据库场景', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: mysql-db
+    dbType: mysql
+    connection:
+      uri: "mysql://root:secret@127.0.0.1:3306"
+    dumpOptions:
+      databases: [app, audit]
+      tables: [users]
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: false
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('MySQL dumpOptions.tables 仅支持单数据库备份场景')
+    })
+
+    it('应该支持带默认数据库名的 MySQL 配置', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: mysql-db
+    dbType: mysql
+    connection:
+      uri: "\${MYSQL_URI}"
+      database: "\${MYSQL_DATABASE:-app}"
+    dumpOptions:
+      singleTransaction: true
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: false
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, 'MYSQL_URI=mysql://root:secret@127.0.0.1:3306\n')
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
+
+        expect(config.projects[0].dbType).toBe('mysql')
+        if (config.projects[0].dbType === 'mysql') {
+            expect(config.projects[0].connection.database).toBe('app')
+            expect(config.projects[0].dumpOptions?.singleTransaction).toBe(true)
+        }
+    })
+
     it('应该校验 PostgreSQL 必须提供数据库名', () => {
         writeFileSync(configPath, `
 projects:

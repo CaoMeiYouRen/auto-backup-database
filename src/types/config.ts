@@ -113,6 +113,42 @@ export interface PostgresDumpOptions {
 }
 
 /**
+ * MySQL dump 选项
+ */
+export interface MySQLDumpOptions {
+    /** 备份全部数据库 */
+    allDatabases?: boolean
+    /** 指定要备份的数据库列表 */
+    databases?: string[]
+    /** 指定要备份的表，仅在单数据库模式下可用 */
+    tables?: string[]
+    /** 使用一致性快照，适用于 InnoDB */
+    singleTransaction?: boolean
+    /** 大表场景按行流式读取 */
+    quick?: boolean
+    /** 导出存储过程和函数 */
+    routines?: boolean
+    /** 导出事件调度器 */
+    events?: boolean
+    /** 是否导出触发器，默认导出 */
+    triggers?: boolean
+    /** 跳过锁表 */
+    skipLockTables?: boolean
+    /** 以十六进制导出二进制字段 */
+    hexBlob?: boolean
+    /** 仅导出表结构 */
+    noData?: boolean
+    /** 仅导出表数据 */
+    noCreateInfo?: boolean
+    /** 默认字符集 */
+    defaultCharacterSet?: string
+    /** GTID 导出策略 */
+    setGtidPurged?: 'OFF' | 'ON' | 'AUTO' | 'COMMENTED'
+    /** 额外参数 */
+    extraArgs?: string[]
+}
+
+/**
  * 基础项目配置
  */
 export interface BaseProjectConfig {
@@ -168,23 +204,21 @@ export interface PostgreSQLProjectConfig extends BaseProjectConfig {
 }
 
 /**
- * 预留的连接型数据库配置
+ * MySQL 项目配置
  */
-export interface ConnectionProjectConfig extends BaseProjectConfig {
+export interface MySQLProjectConfig extends BaseProjectConfig {
     /** 数据库类型 */
     dbType: 'mysql'
     /** 连接配置 */
-    connection?: DatabaseConnectionConfig
-    /** 扩展选项 */
-    dumpOptions?: Record<string, unknown>
-    /** 兼容旧字段 */
-    dbPath?: string
+    connection: DatabaseConnectionConfig
+    /** dump 选项 */
+    dumpOptions?: MySQLDumpOptions
 }
 
 /**
  * 项目配置
  */
-export type ProjectConfig = SQLiteProjectConfig | MongoDBProjectConfig | PostgreSQLProjectConfig | ConnectionProjectConfig
+export type ProjectConfig = SQLiteProjectConfig | MongoDBProjectConfig | PostgreSQLProjectConfig | MySQLProjectConfig
 
 /**
  * 应用配置（展开后的统一配置对象）

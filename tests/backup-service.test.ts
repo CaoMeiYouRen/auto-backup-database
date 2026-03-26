@@ -13,7 +13,7 @@ vi.mock('node:child_process', () => ({
 
 import { BackupService } from '@/services/backup'
 import { OSSStorage } from '@/storage/oss'
-import type { FullConfig, MongoDBProjectConfig, SQLiteProjectConfig } from '@/types/config'
+import type { FullConfig, MongoDBProjectConfig, MySQLProjectConfig, SQLiteProjectConfig } from '@/types/config'
 
 function getProjectBackupDirs(projectDir: string): string[] {
     return readdirSync(projectDir).sort()
@@ -38,21 +38,25 @@ describe('BackupService', () => {
         mkdirSync(localBackupDir, { recursive: true })
 
         execFileMock.mockReset()
-        execFileMock.mockImplementation((_file: string, args: string[], _options: unknown, callback: (...callbackArgs: unknown[]) => void) => {
+        execFileMock.mockImplementation((file: string, args: string[], _options: unknown, callback: (...callbackArgs: unknown[]) => void) => {
             if (args.includes('--version')) {
-                callback(null, 'mongodump version 100.14.0', '')
+                callback(null, `${file} version mock`, '')
                 return
             }
 
             const archiveArg = args.find((arg) => arg.startsWith('--archive='))
             const archivePath = archiveArg?.slice('--archive='.length)
-            if (!archivePath) {
-                callback(new Error('missing archive argument'))
+            const resultFileArg = args.find((arg) => arg.startsWith('--result-file='))
+            const resultFilePath = resultFileArg?.slice('--result-file='.length)
+
+            if (!archivePath && !resultFilePath) {
+                callback(new Error('missing output argument'))
                 return
             }
 
-            mkdirSync(dirname(archivePath), { recursive: true })
-            writeFileSync(archivePath, 'mock-archive-content')
+            const outputPath = archivePath || resultFilePath
+            mkdirSync(dirname(outputPath), { recursive: true })
+            writeFileSync(outputPath, 'mock-dump-content')
             callback(null, 'done', '')
         })
     })
@@ -219,6 +223,63 @@ describe('BackupService', () => {
             security: {
                 backupPassword: 'test-password',
             },
+        }
+
+        const service = new BackupService({
+            project,
+            fullConfig,
+            localBackupDir,
+            tempDir,
+        })
+
+        const result = await service.run()
+
+        expect(result.backup.success).toBe(true)
+        expect(result.compress?.success).toBe(true)
+        expect(result.localUpload?.success).toBe(true)
+        expect(result.overallSuccess).toBe(true)
+        const projectBackupDir = join(localBackupDir, project.name)
+        const backupDir = getOnlyBackupDir(projectBackupDir)
+        expect(readdirSync(join(projectBackupDir, backupDir)).some((fileName) => fileName.endsWith('.tar.gz'))).toBe(true)
+        expect(existsSync(tempDir)).toBe(false)
+    })
+
+    it('应该完成 MySQL 本地备份、压缩并清理临时目录', async () => {
+        const project: MySQLProjectConfig = {
+            name: 'mysql-db',
+            dbType: 'mysql',
+            connection: {
+                uri: 'mysql://root:secret@127.0.0.1:3306',
+                database: 'app',
+            },
+            dumpOptions: {
+                singleTransaction: true,
+                routines: true,
+            },
+            backupSchedule: '0 2 * * *',
+            compress: {
+                enabled: true,
+                password: false,
+            },
+            retention: {
+                local: {
+                    days: 30,
+                    maxSize: '10GB',
+                },
+                remote: {
+                    days: 30,
+                    maxSize: '10GB',
+                },
+            },
+            options: {
+                localEnabled: true,
+                remoteEnabled: false,
+            },
+        }
+
+        const tempDir = join(tempRoot, 'temp-mysql-local')
+        const fullConfig: FullConfig = {
+            projects: [project],
         }
 
         const service = new BackupService({

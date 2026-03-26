@@ -27,8 +27,8 @@ RUN export PROJECT_ROOT=/app/ && \
 # Stage 4: Production Runtime (正式运行环境)
 FROM caomeiyouren/alpine-nodejs-minimize:latest AS runtime
 
-# 安装必要工具 (用于打包备份文件、MongoDB/PostgreSQL 备份以及设置时区)
-RUN apk update && apk add --no-cache tar openssl tzdata mongodb-tools postgresql-client
+# 安装必要工具 (用于打包备份文件、MongoDB/MySQL/PostgreSQL 备份以及设置时区)
+RUN apk update && apk add --no-cache tar openssl tzdata mongodb-tools mariadb-client postgresql-client
 
 WORKDIR /app
 ENV NODE_ENV production

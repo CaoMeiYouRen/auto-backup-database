@@ -63,5 +63,16 @@
 
 
 ## 未来扩展 (待定)
-- [ ] 添加 MySQL 支持
 - [ ] 更多 OSS 渠道支持 (S3, 腾讯云, 百度云等)
+
+# 阶段 8：添加 MySQL 支持
+- [x] 设计 MySQL 备份方案，明确 Docker 预装与宿主机预安装策略
+- [x] 扩展 `ProjectConfig`，支持 MySQL 连接信息与 `dumpOptions`
+- [x] 在配置加载阶段增加 MySQL 条件校验
+- [x] 设计并实现 `MySQLProvider`
+- [x] 在 `BackupService.createProvider()` 中接入 `mysql` 分支
+- [x] 基于 `mysqldump` 实现 MySQL SQL 逻辑导出
+- [x] 增加 `mysqldump` 可用性检测，并兼容 Docker 中的 `mariadb-dump`
+- [x] 为 Docker 运行镜像预装 MySQL Client Tools
+- [x] 在 README 与设计文档中补充 MySQL 备份依赖与配置示例
+- [x] 为 MySQLProvider 编写单元测试与备份流程测试

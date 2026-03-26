@@ -141,6 +141,36 @@ export class ConfigLoader {
                     throw new Error(`项目 "${project.name}" 配置错误: dumpOptions.gzip 与 compress.enabled 不能同时启用`)
                 }
                 break
+            case 'mysql': {
+                if (!project.connection?.uri) {
+                    throw new Error(`项目 "${project.name}" 配置错误: MySQL 缺少 connection.uri 字段`)
+                }
+
+                const mysqlDatabases = project.dumpOptions?.databases?.filter(Boolean) ?? []
+                const hasExplicitDatabase = Boolean(project.connection.database)
+                    || this.hasDatabaseNameInConnection(project.connection.uri)
+
+                if (project.dumpOptions?.allDatabases && mysqlDatabases.length > 0) {
+                    throw new Error(`项目 "${project.name}" 配置错误: MySQL dumpOptions.allDatabases 与 dumpOptions.databases 不能同时启用`)
+                }
+
+                if (!project.dumpOptions?.allDatabases && mysqlDatabases.length === 0 && !hasExplicitDatabase) {
+                    throw new Error(`项目 "${project.name}" 配置错误: MySQL 需要开启 dumpOptions.allDatabases，或在 connection.uri / connection.database / dumpOptions.databases 中指定备份目标`)
+                }
+
+                if (project.dumpOptions?.tables?.length) {
+                    const singleDatabaseTargetCount = mysqlDatabases.length || (hasExplicitDatabase ? 1 : 0)
+                    if (project.dumpOptions.allDatabases || singleDatabaseTargetCount !== 1) {
+                        throw new Error(`项目 "${project.name}" 配置错误: MySQL dumpOptions.tables 仅支持单数据库备份场景`)
+                    }
+                }
+
+                if (project.dumpOptions?.noData && project.dumpOptions?.noCreateInfo) {
+                    throw new Error(`项目 "${project.name}" 配置错误: MySQL dumpOptions.noData 与 dumpOptions.noCreateInfo 不能同时启用`)
+                }
+
+                break
+            }
             case 'postgresql': {
                 if (!project.connection?.uri) {
                     throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 缺少 connection.uri 字段`)

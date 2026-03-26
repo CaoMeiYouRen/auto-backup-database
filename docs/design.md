@@ -28,6 +28,7 @@
 - **多数据库支持**:
     - 采用插件式/抽象类设计，默认实现 **SQLite**。
     - MongoDB 通过 `mongodump` 导出 BSON 归档，优先支持副本集/单节点场景。
+    - MySQL 通过 `mysqldump` 导出 SQL 逻辑备份，覆盖单数据库、多数据库与全库导出场景。
     - PostgreSQL 通过 `pg_dump` 导出单文件归档，兼顾常规全量备份与后续 `pg_restore` 恢复。
     - 预留接口继续支持 **MySQL** 等。
 - **灵活备份策略**:
@@ -290,8 +291,104 @@ pg_dump \
 - 日志中应记录最终执行参数的摘要，但必须避免输出明文密码。
 - 通知消息应能区分“数据库备份失败”和“后续上传失败”。
 
-## 7. 系统架构
-### 7.1 配置文件结构 (config.yml)
+## 7. MySQL 备份设计
+
+### 7.1 方案选择
+- 使用 MySQL 官方 `mysqldump` 作为备份引擎，而不是通过驱动自行拼接 SQL。
+- 选择 `mysqldump` 的原因：
+    - 官方工具，兼容常见 MySQL 逻辑备份场景。
+    - 输出标准 SQL 文件，便于使用 `mysql` 命令直接恢复。
+    - 能覆盖单数据库、多数据库以及全库导出等典型运维需求。
+- 当前阶段聚焦“逻辑备份”，不覆盖物理热备、binlog 增量备份与 PITR。
+
+### 7.2 运行时依赖策略
+- **Docker 环境**: 在运行镜像中预装 MySQL Client Tools；考虑 Alpine 生态，镜像使用 `mariadb-client`，优先调用 `mysqldump`，必要时兼容 `mariadb-dump`。
+- **非 Docker 环境**: 不在 npm 依赖中打包客户端工具，要求用户自行安装 `mysqldump` 并加入系统 `PATH`。
+- 程序启动或任务执行前需要检测 `mysqldump` 是否可用；若不可用，应返回明确错误并提示安装方式。
+
+### 7.3 配置模型扩展
+MySQL 采用连接型数据库配置，延续统一配置模型：
+
+```yaml
+projects:
+    - name: mysql-prod
+        dbType: mysql
+        connection:
+            uri: "${MYSQL_URI}"
+            database: "${MYSQL_DATABASE:-app}"
+        dumpOptions:
+            singleTransaction: true
+            quick: true
+            routines: true
+            events: true
+            tables: []
+            extraArgs: []
+        backupSchedule: "0 3 * * *"
+        compress:
+            enabled: true
+            password: true
+        retention:
+            local:
+                days: 7
+                maxSize: 5GB
+            remote:
+                days: 30
+                maxSize: 20GB
+        options:
+            localEnabled: true
+            remoteEnabled: true
+```
+
+约束如下：
+- `connection.uri` 必填，推荐使用 `mysql://user:password@host:port` 形式。
+- 备份目标三选一：
+    - `dumpOptions.allDatabases: true`
+    - `dumpOptions.databases: ['db1', 'db2']`
+    - `connection.uri` 或 `connection.database` 提供单数据库名
+- `dumpOptions.tables` 仅允许在单数据库模式下启用。
+- `dumpOptions.noData` 与 `dumpOptions.noCreateInfo` 不能同时启用。
+
+### 7.4 MySQLProvider 设计
+- 新增 `MySQLProvider`，继承 `DatabaseProvider`。
+- `validatePath()` 对 MySQL 语义上调整为校验连接配置和 `mysqldump` 可执行文件可用性。
+- `getDatabaseFiles()` 对 MySQL 不再表示源数据库文件列表，返回空数组以保持抽象层兼容。
+- `backup(outputDir)` 的核心流程：
+    1. 构造本次备份输出目录。
+    2. 解析 MySQL URI，拆分 `host`、`port`、`user` 与数据库名。
+    3. 通过环境变量传递密码，避免将密码直接拼进命令参数。
+    4. 以参数数组方式执行 `mysqldump --result-file=<path>`。
+    5. 输出单个 `.sql` 文件并复用现有压缩、加密、本地存储、OSS 上传、生命周期清理流程。
+
+建议默认命令形态：
+
+```bash
+mysqldump \
+    --host=127.0.0.1 \
+    --port=3306 \
+    --user=root \
+    --single-transaction \
+    --quick \
+    --databases app \
+    --result-file=/tmp/backup/mysql-prod/2026-03-26_03-00-00/mysql-prod-2026-03-26_03-00-00.sql
+```
+
+### 7.5 与现有备份流水线的集成
+- `BackupService.createProvider()` 增加 `mysql` 分支。
+- 压缩层保持不变：MySQL 备份结果仍作为普通 `.sql` 文件进入现有统一压缩接口。
+- 本地与远程生命周期清理继续复用 `LocalStorage` 与 `OSSStorage`，无需为 MySQL 单独实现。
+- `config.example.yml`、README 与 Dockerfile 需要同步增加 MySQL 的依赖与示例。
+
+### 7.6 异常处理与可观测性
+- 以下场景需要给出明确错误信息：
+    - `mysqldump` 未安装或不在 `PATH` 中。
+    - 连接认证失败、权限不足。
+    - 未指定数据库备份目标。
+    - 配置了不兼容的目标模式或导出选项组合。
+- 日志中应记录最终执行参数摘要，但必须避免输出明文密码。
+- 通知消息应能区分“数据库备份失败”和“后续上传失败”。
+
+## 8. 系统架构
+### 8.1 配置文件结构 (config.yml)
 ```yaml
 oss:
     region: "${OSS_REGION}"
@@ -346,6 +443,32 @@ projects:
             localEnabled: true
             remoteEnabled: true
 
+    - name: mysql-prod
+        dbType: mysql
+        connection:
+            uri: "${MYSQL_URI}"
+            database: "${MYSQL_DATABASE:-app}"
+        dumpOptions:
+            singleTransaction: true
+            quick: true
+            routines: true
+            events: true
+            extraArgs: []
+        backupSchedule: "0 3 * * *"
+        compress:
+            enabled: true
+            password: true
+        retention:
+            local:
+                days: 7
+                maxSize: 5GB
+            remote:
+                days: 30
+                maxSize: 20GB
+        options:
+            localEnabled: true
+            remoteEnabled: true
+
     - name: postgres-prod
         dbType: postgresql
         connection:
@@ -381,7 +504,7 @@ notify:
         msgtype: markdown
 ```
 
-### 7.2 环境变量 (.env)
+### 8.2 环境变量 (.env)
 ```env
 # OSS 配置
 OSS_REGION=oss-cn-hangzhou
@@ -398,16 +521,21 @@ MONGODB_URI=mongodb://username:password@127.0.0.1:27017/app?authSource=admin
 MONGODB_DATABASE=app
 MONGODB_AUTH_DB=admin
 
+# MySQL 配置
+MYSQL_URI=mysql://root:password@127.0.0.1:3306
+MYSQL_DATABASE=app
+
 # PostgreSQL 配置
 POSTGRESQL_URI=postgresql://postgres:password@127.0.0.1:5432
 POSTGRESQL_DATABASE=app
 ```
 
-### 7.3 核心模块设计
+### 8.3 核心模块设计
 - **`ConfigLoader`**: 加载 `.env`，解析 `config.yml`，展开占位符，产出统一配置对象并执行校验。
 - **`DatabaseProvider`**: 抽象类，定义 `backup()` 方法。
     - `SQLiteProvider`: 实现文件直接拷贝备份。
     - `MongoDBProvider`: 调用 `mongodump` 生成归档文件。
+    - `MySQLProvider`: 调用 `mysqldump` 生成 SQL 逻辑备份。
     - `PostgreSQLProvider`: 调用 `pg_dump` 生成单文件归档。
 - **`BackupService`**: 核心逻辑流。
     1. 触发备份。
@@ -421,19 +549,21 @@ POSTGRESQL_DATABASE=app
 - **`NotifyService`**:
     - 基于 `push-all-in-one` 实现，负责备份成功、失败、清理等事件的消息推送。
 
-## 8. 部署说明
+## 9. 部署说明
 - **Docker**:
     - 挂载 `config.yml` 和 `.env` 到 `/app/config/`。
     - 挂载需要备份的数据库文件夹到容器内。
     - 挂载本地备份输出路径。
-    - 运行镜像内预装 `mongodump` 与 `pg_dump`，可直接执行 MongoDB / PostgreSQL 备份。
+    - 运行镜像内预装 `mongodump`、`mysqldump` 兼容工具与 `pg_dump`，可直接执行 MongoDB / MySQL / PostgreSQL 备份。
 - **非 Docker**:
     - 需要用户自行安装 MongoDB Database Tools。
     - 需要确保 `mongodump --version` 可以在终端直接执行。
+    - 需要用户自行安装 MySQL Client Tools。
+    - 需要确保 `mysqldump --version` 可以在终端直接执行。
     - 需要用户自行安装 PostgreSQL Client Tools。
     - 需要确保 `pg_dump --version` 可以在终端直接执行。
 
-## 9. 后续扩展性
+## 10. 后续扩展性
 - **消息通知**: 备份成功/失败发送到 Webhook (通知、企业微信、飞书等)。
 - **监控**: 对接 Prometheus 展示备份状态。
 - **恢复能力**: 后续可补充 `mongorestore` 驱动的恢复命令与演练文档。

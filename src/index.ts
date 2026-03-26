@@ -7,13 +7,14 @@ export type {
     SecurityConfig,
     DatabaseConnectionConfig,
     MongoDumpOptions,
+    MySQLDumpOptions,
     PostgresDumpFormat,
     PostgresDumpOptions,
     BaseProjectConfig,
     SQLiteProjectConfig,
     MongoDBProjectConfig,
+    MySQLProjectConfig,
     PostgreSQLProjectConfig,
-    ConnectionProjectConfig,
     ProjectConfig,
     AppConfig,
     OSSConfig,
@@ -27,6 +28,7 @@ export { ConfigLoader, createConfigLoader, loadConfig } from './config/loader'
 export { DatabaseProvider } from './providers/database'
 export type { BackupResult } from './providers/database'
 export { MongoDBProvider } from './providers/mongodb'
+export { MySQLProvider } from './providers/mysql'
 export { PostgreSQLProvider } from './providers/postgresql'
 export { SQLiteProvider } from './providers/sqlite'
 
