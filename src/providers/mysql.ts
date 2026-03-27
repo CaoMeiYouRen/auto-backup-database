@@ -14,6 +14,8 @@ interface MySQLConnectionInfo {
     env: NodeJS.ProcessEnv
 }
 
+type QueryBoolean = boolean | null
+
 /**
  * MySQL 数据库提供者
  * 基于官方 mysqldump 工具生成 SQL 备份文件
@@ -90,7 +92,7 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
      * 检查 mysqldump 是否可用，兼容 Alpine 下的 mariadb-dump
      */
     private async ensureMysqldumpAvailable(): Promise<string> {
-        const candidates = ['mysqldump', 'mariadb-dump']
+        const candidates = ['mariadb-dump', 'mysqldump']
 
         for (const executable of candidates) {
             try {
@@ -104,7 +106,7 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
             }
         }
 
-        throw new Error('未找到 mysqldump，请安装 MySQL Client Tools，并确保 mysqldump 已加入 PATH')
+        throw new Error('未找到 mysqldump 或 mariadb-dump，请安装 MySQL Client Tools，并确保其已加入 PATH')
     }
 
     /**
@@ -204,18 +206,68 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
                 env.MYSQL_PWD = this.decodeUrlComponent(parsed.password)
             }
 
-            for (const [key, value] of parsed.searchParams.entries()) {
-                if (this.shouldSkipQueryArg(key)) {
-                    continue
-                }
-
-                args.push(`--${key}=${value}`)
-            }
+            args.push(...this.buildQueryArgs(parsed.searchParams))
 
             return { args, env }
         } catch {
             throw new Error('MySQL connection.uri 必须是有效的 mysql:// 连接串')
         }
+    }
+
+    /**
+     * 仅将少量已知的 MySQL URI 查询参数转换为 CLI 参数，避免把应用层 DSN 参数错误透传给 dump 工具
+     */
+    private buildQueryArgs(searchParams: URLSearchParams): string[] {
+        const args: string[] = []
+        const sslMode = searchParams.get('ssl-mode')?.trim()
+        const tlsValue = searchParams.get('tls')?.trim()
+        const tlsVersion = searchParams.get('tls-version')?.trim()
+        const sslValue = searchParams.get('ssl')?.trim()
+        const verifyServerCert = this.parseBooleanQuery(searchParams.get('ssl-verify-server-cert'))
+
+        if (sslMode) {
+            args.push(`--ssl-mode=${sslMode}`)
+        } else {
+            const tlsEnabled = this.parseBooleanQuery(tlsValue)
+            const sslEnabled = this.parseBooleanQuery(sslValue)
+            const effectiveTls = tlsEnabled ?? sslEnabled
+
+            if (verifyServerCert === true) {
+                args.push('--ssl-mode=VERIFY_IDENTITY')
+            } else if (effectiveTls === true) {
+                args.push('--ssl-mode=REQUIRED')
+            } else if (effectiveTls === false) {
+                args.push('--ssl-mode=DISABLED')
+            } else if (tlsValue) {
+                args.push(`--tls-version=${tlsValue}`)
+            }
+        }
+
+        if (tlsVersion) {
+            args.push(`--tls-version=${tlsVersion}`)
+        }
+
+        const directMappings: Record<string, string> = {
+            'ssl-ca': 'ssl-ca',
+            'ssl-cert': 'ssl-cert',
+            'ssl-key': 'ssl-key',
+            'ssl-cipher': 'ssl-cipher',
+            charset: 'default-character-set',
+            socket: 'socket',
+        }
+
+        for (const [key, optionName] of Object.entries(directMappings)) {
+            const value = searchParams.get(key)?.trim()
+            if (value) {
+                args.push(`--${optionName}=${value}`)
+            }
+        }
+
+        if (this.parseBooleanQuery(searchParams.get('compress')) === true) {
+            args.push('--compress')
+        }
+
+        return args
     }
 
     /**
@@ -252,6 +304,26 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
     }
 
     /**
+     * 解析 URI 查询参数中的布尔值
+     */
+    private parseBooleanQuery(value: string | null | undefined): QueryBoolean {
+        if (!value) {
+            return null
+        }
+
+        const normalized = value.trim().toLowerCase()
+        if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+            return true
+        }
+
+        if (['0', 'false', 'no', 'off'].includes(normalized)) {
+            return false
+        }
+
+        return null
+    }
+
+    /**
      * 处理 URL 中编码过的用户名密码
      */
     private decodeUrlComponent(value: string): string {
@@ -268,9 +340,34 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
     private extractErrorMessage(error: unknown): string {
         if (error instanceof Error) {
             const execError = error as Error & { stderr?: string, stdout?: string }
-            return execError.stderr?.trim() || execError.stdout?.trim() || execError.message
+            const rawMessage = execError.stderr?.trim() || execError.stdout?.trim() || execError.message
+            return this.normalizeErrorMessage(rawMessage)
         }
 
         return inspect(error)
+    }
+
+    /**
+     * 清理客户端兼容性噪音，并为 TiDB 配额限制补充更明确的提示
+     */
+    private normalizeErrorMessage(message: string): string {
+        const cleaned = message
+            .split(/\r?\n/u)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .filter((line) => !line.startsWith('mysqldump: Deprecated program name.'))
+            .filter((line) => !line.startsWith('Info: Using unique option prefix \'tls\''))
+            .filter((line) => !line.startsWith('WARNING: option --ssl-verify-server-cert is disabled'))
+            .join('\n')
+
+        if (cleaned.includes('Due to the usage quota being exhausted, access to the cluster has been restricted. Try increasing spending limits to gain full access. For more information, see https://docs.pingcap.com/tidbcloud/serverless-limitations#usage-quota')) {
+            return [
+                'TiDB 集群访问被限制：当前使用配额已耗尽，备份任务暂时无法连接数据库。',
+                '请提升 TiDB Cloud spending limit，或等待配额恢复后再重试。',
+                cleaned,
+            ].filter(Boolean).join('\n')
+        }
+
+        return cleaned || message
     }
 }

@@ -84,7 +84,7 @@ describe('MySQLProvider', () => {
         }
     })
 
-    it('应该使用参数数组执行 mysqldump 并生成备份文件', async () => {
+    it('应该优先使用 mariadb-dump 并生成备份文件', async () => {
         const provider = new MySQLProvider(project)
 
         const result = await provider.backup(tempDir)
@@ -93,7 +93,7 @@ describe('MySQLProvider', () => {
         expect(result.backupFiles).toHaveLength(1)
         expect(existsSync(result.backupFiles[0])).toBe(true)
         expect(execFileMock).toHaveBeenCalledWith(
-            'mysqldump',
+            'mariadb-dump',
             expect.arrayContaining([
                 '--host=127.0.0.1',
                 '--port=3306',
@@ -115,6 +115,34 @@ describe('MySQLProvider', () => {
 
         const calledArgs = execFileMock.mock.calls.at(-1)?.[1] as string[]
         expect(calledArgs.some((arg) => arg.startsWith('--result-file='))).toBe(true)
+    })
+
+    it('应该将常见的 TiDB TLS DSN 参数规范化为稳定的 CLI 参数', async () => {
+        project.connection.uri = 'mysql://root:secret@127.0.0.1:4000/test?tls=true&ssl-verify-server-cert=true&charset=utf8mb4'
+
+        const provider = new MySQLProvider(project)
+        const result = await provider.backup(tempDir)
+
+        expect(result.success).toBe(true)
+
+        const calledArgs = execFileMock.mock.calls.at(-1)?.[1] as string[]
+        expect(calledArgs).toContain('--ssl-mode=VERIFY_IDENTITY')
+        expect(calledArgs).toContain('--default-character-set=utf8mb4')
+        expect(calledArgs).not.toContain('--tls=true')
+        expect(calledArgs).not.toContain('--ssl-verify-server-cert=true')
+    })
+
+    it('应该在 tls 参数表示版本时映射为 tls-version', async () => {
+        project.connection.uri = 'mysql://root:secret@127.0.0.1:3306/app?tls=TLSv1.2'
+
+        const provider = new MySQLProvider(project)
+        const result = await provider.backup(tempDir)
+
+        expect(result.success).toBe(true)
+
+        const calledArgs = execFileMock.mock.calls.at(-1)?.[1] as string[]
+        expect(calledArgs).toContain('--tls-version=TLSv1.2')
+        expect(calledArgs).not.toContain('--tls=TLSv1.2')
     })
 
     it('应该在 mysqldump 缺失时回退到 mariadb-dump', async () => {
@@ -163,5 +191,33 @@ describe('MySQLProvider', () => {
 
         expect(result.success).toBe(false)
         expect(result.error).toContain('未找到 mysqldump')
+    })
+
+    it('应该将 TiDB 配额限制错误整理为清晰提示', async () => {
+        execFileMock.mockImplementation((file: string, args: string[], _options: unknown, callback: (...callbackArgs: unknown[]) => void) => {
+            if (args.includes('--version')) {
+                callback(null, `${file} Ver 11.8.2`, '')
+                return
+            }
+
+            const error = Object.assign(new Error('Command failed'), {
+                stderr: [
+                    'mysqldump: Deprecated program name. It will be removed in a future release, use \'/usr/bin/mariadb-dump\' instead',
+                    'Info: Using unique option prefix \'tls\' is error-prone and can break in the future. Please use the full name \'tls-version\' instead.',
+                    'WARNING: option --ssl-verify-server-cert is disabled, because of an insecure passwordless login.',
+                    'mysqldump: Got error: 1105: "Due to the usage quota being exhausted, access to the cluster has been restricted. Try increasing spending limits to gain full access. For more information, see https://docs.pingcap.com/tidbcloud/serverless-limitations#usage-quota" when trying to connect',
+                ].join('\n'),
+            })
+            callback(error)
+        })
+
+        const provider = new MySQLProvider(project)
+        const result = await provider.backup(tempDir)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('TiDB 集群访问被限制')
+        expect(result.error).toContain('usage quota being exhausted')
+        expect(result.error).not.toContain('Deprecated program name')
+        expect(result.error).not.toContain('unique option prefix \'tls\'')
     })
 })
