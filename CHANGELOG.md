@@ -1,5 +1,12 @@
 # auto-backup-database
 
+## [1.5.2](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.1...v1.5.2) (2026-03-29)
+
+
+### 🐛 Bug 修复
+
+* **mysql:** 优化 MySQL 备份工具的依赖与错误提示 ([7c11f08](https://github.com/CaoMeiYouRen/auto-backup-database/commit/7c11f08))
+
 ## [1.5.1](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.0...v1.5.1) (2026-03-27)
 
 
