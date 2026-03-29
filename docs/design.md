@@ -302,7 +302,7 @@ pg_dump \
 - 当前阶段聚焦“逻辑备份”，不覆盖物理热备、binlog 增量备份与 PITR。
 
 ### 7.2 运行时依赖策略
-- **Docker 环境**: 在运行镜像中预装 MySQL Client Tools；考虑 Alpine 生态，镜像使用 `mariadb-client`，优先调用 `mysqldump`，必要时兼容 `mariadb-dump`。
+- **Docker 环境**: 在运行镜像中预装 `mariadb-client` 与 `mariadb-connector-c`；默认优先调用 `mysqldump`，必要时兼容 `mariadb-dump`。其中 `mariadb-connector-c` 用于提供 `caching_sha2_password.so` 等认证插件，避免连接 MySQL 8 默认认证实例时失败。
 - **非 Docker 环境**: 不在 npm 依赖中打包客户端工具，要求用户自行安装 `mysqldump` 并加入系统 `PATH`。
 - 程序启动或任务执行前需要检测 `mysqldump` 是否可用；若不可用，应返回明确错误并提示安装方式。
 

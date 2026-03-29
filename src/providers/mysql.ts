@@ -92,7 +92,7 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
      * 检查 mysqldump 是否可用，兼容 Alpine 下的 mariadb-dump
      */
     private async ensureMysqldumpAvailable(): Promise<string> {
-        const candidates = ['mariadb-dump', 'mysqldump']
+        const candidates = ['mysqldump', 'mariadb-dump']
 
         for (const executable of candidates) {
             try {
@@ -359,6 +359,15 @@ export class MySQLProvider extends DatabaseProvider<MySQLProjectConfig> {
             .filter((line) => !line.startsWith('Info: Using unique option prefix \'tls\''))
             .filter((line) => !line.startsWith('WARNING: option --ssl-verify-server-cert is disabled'))
             .join('\n')
+
+        if (cleaned.includes('Plugin caching_sha2_password could not be loaded')) {
+            return [
+                'MySQL 客户端缺少 caching_sha2_password 认证插件，当前无法连接使用 MySQL 8 默认认证方式的实例。',
+                '如果你在 Alpine 或 Docker 环境中运行，请额外安装 mariadb-connector-c，确保 /usr/lib/mariadb/plugin/caching_sha2_password.so 存在。',
+                '如果你在宿主机运行，请安装完整的 MySQL Client Tools 或 MariaDB Connector C 插件包后重试。',
+                cleaned,
+            ].filter(Boolean).join('\n')
+        }
 
         if (cleaned.includes('Due to the usage quota being exhausted, access to the cluster has been restricted. Try increasing spending limits to gain full access. For more information, see https://docs.pingcap.com/tidbcloud/serverless-limitations#usage-quota')) {
             return [

@@ -211,12 +211,13 @@ MongoDB 备份计划基于官方 `mongodump` 工具实现：
 
 MySQL 备份基于官方 `mysqldump` 工具实现：
 
-- Docker 部署时，镜像内预装 MySQL Client Tools；若同时存在 `mariadb-dump` 与 `mysqldump`，程序优先使用 `mariadb-dump`，避免 MariaDB 兼容包中的 `mysqldump` 包装器弃用告警。
+- Docker 部署时，镜像内预装 `mariadb-client` 与 `mariadb-connector-c`，默认优先调用 `mysqldump`，仅在缺失时回退到 `mariadb-dump`。
 - 非 Docker 部署时，需要自行安装 MySQL Client Tools，并确保 `mysqldump --version` 可以直接执行。
 - 当前实现默认输出单个 `.sql` 逻辑备份文件，并复用现有压缩、加密、本地存储和远程上传流程。
 - 单项目支持 3 种目标模式：单数据库、显式多数据库和 `dumpOptions.allDatabases`；若配置 `dumpOptions.tables`，则只能用于单数据库场景。
 - 推荐在 InnoDB 场景下启用 `dumpOptions.singleTransaction: true` 与 `dumpOptions.quick: true`，减少锁表影响并改善大表导出行为。
 - `connection.uri` 中仅会转换少量已知兼容的查询参数，如 `ssl-mode`、`tls`、`tls-version`、`ssl-ca`、`ssl-cert`、`ssl-key`、`charset`；其他应用层 DSN 参数会被忽略。如需显式传递 CLI 参数，请使用 `dumpOptions.extraArgs`。
+- 如果 MySQL 8 实例使用默认的 `caching_sha2_password` 认证方式，Docker/Alpine 环境必须确保安装了 `mariadb-connector-c`，否则会报缺少 `caching_sha2_password.so` 插件的连接错误。
 - 若 TiDB Cloud 返回 `usage quota being exhausted`，说明实例配额已耗尽，属于服务端限制，需提升额度或等待恢复后再重试。
 
 ### 5. PostgreSQL 备份说明

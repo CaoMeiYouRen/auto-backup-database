@@ -84,7 +84,7 @@ describe('MySQLProvider', () => {
         }
     })
 
-    it('应该优先使用 mariadb-dump 并生成备份文件', async () => {
+    it('应该优先使用 mysqldump 并生成备份文件', async () => {
         const provider = new MySQLProvider(project)
 
         const result = await provider.backup(tempDir)
@@ -93,7 +93,7 @@ describe('MySQLProvider', () => {
         expect(result.backupFiles).toHaveLength(1)
         expect(existsSync(result.backupFiles[0])).toBe(true)
         expect(execFileMock).toHaveBeenCalledWith(
-            'mariadb-dump',
+            'mysqldump',
             expect.arrayContaining([
                 '--host=127.0.0.1',
                 '--port=3306',
@@ -179,6 +179,28 @@ describe('MySQLProvider', () => {
             expect.any(Object),
             expect.any(Function),
         )
+    })
+
+    it('应该将 caching_sha2_password 插件缺失错误整理为清晰提示', async () => {
+        execFileMock.mockImplementation((file: string, args: string[], _options: unknown, callback: (...callbackArgs: unknown[]) => void) => {
+            if (args.includes('--version')) {
+                callback(null, `${file} Ver 11.8.2`, '')
+                return
+            }
+
+            const error = Object.assign(new Error('Command failed'), {
+                stderr: 'mariadb-dump: Got error: 1045: "Plugin caching_sha2_password could not be loaded: Error loading shared library /usr/lib/mariadb/plugin/caching_sha2_password.so: No such file or directory" when trying to connect',
+            })
+            callback(error)
+        })
+
+        const provider = new MySQLProvider(project)
+        const result = await provider.backup(tempDir)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('caching_sha2_password 认证插件')
+        expect(result.error).toContain('mariadb-connector-c')
+        expect(result.error).toContain('caching_sha2_password.so')
     })
 
     it('应该在 mysqldump 缺失时返回清晰错误', async () => {
