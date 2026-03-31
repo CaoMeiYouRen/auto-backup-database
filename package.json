@@ -54,7 +54,7 @@
     "cz-conventional-changelog-cmyr": "^2.0.0",
     "debug": "^4.4.3",
     "eslint": "^9.34.0",
-    "eslint-config-cmyr": "^2.1.4",
+    "eslint-config-cmyr": "^2.1.5",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "rimraf": "^6.1.3",
