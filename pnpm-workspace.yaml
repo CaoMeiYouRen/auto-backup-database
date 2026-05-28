@@ -8,6 +8,18 @@ overrides:
   '@octokit/request': ^9.2.1
   '@octokit/request-error': ^5.1.1
   brace-expansion: ^2.0.3
-  tmp: ^0.2.4
+  axios: ^1.15.2
+  minimatch: ^3.1.4
+  undici: ^7.24.0
+  fast-uri: ^3.1.2
+  flatted: ^3.4.2
+  tar: ^7.5.11
+  fast-xml-builder: ^1.1.7
+  lodash: ^4.17.24
+  picomatch: ^4.0.4
+  tmp: ^0.2.6
+  nodemailer: ^8.0.5
+  ip-address: ^10.1.1
+  diff: ^5.2.2
   glob: ^13.0.6
   js-yaml: ^4.1.1
