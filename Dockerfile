@@ -1,5 +1,6 @@
 # Stage 1: Base (Node.js + pnpm)
 FROM caomeiyouren/alpine-nodejs:latest AS nodejs
+RUN npm install -g pnpm@11
 
 # Stage 2: Builder
 FROM nodejs AS builder
@@ -31,7 +32,7 @@ FROM caomeiyouren/alpine-nodejs-minimize:latest AS runtime
 RUN apk update && apk add --no-cache tar openssl tzdata mongodb-tools mariadb-client mariadb-connector-c postgresql-client
 
 WORKDIR /app
-ENV NODE_ENV production
+ENV NODE_ENV=production
 ENV TZ Asia/Shanghai
 
 # 从 minifier 复制精简后的 node_modules，从 builder 复制构建结果

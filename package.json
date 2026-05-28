@@ -107,20 +107,6 @@
     "yaml": "^2.8.3",
     "zx": "^8.8.5"
   },
-  "pnpm": {
-    "overrides": {
-      "compare-func": "^2.0.0",
-      "katex": "^0.16.21",
-      "esbuild": "^0.25.0",
-      "@octokit/plugin-paginate-rest": "^11.4.1",
-      "@octokit/request": "^9.2.1",
-      "@octokit/request-error": "^5.1.1",
-      "brace-expansion": "^2.0.3",
-      "tmp": "^0.2.4",
-      "glob": "^13.0.6",
-      "js-yaml": "^4.1.1"
-    }
-  },
   "type": "module",
   "changelog": {
     "language": "zh"
