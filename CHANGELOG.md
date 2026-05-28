@@ -1,5 +1,12 @@
 # auto-backup-database
 
+## [1.5.3](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.2...v1.5.3) (2026-05-28)
+
+
+### 🐛 Bug 修复
+
+* **docker:** 修复 pnpm 锁文件校验与 ENV 格式 ([bbe7104](https://github.com/CaoMeiYouRen/auto-backup-database/commit/bbe7104))
+
 ## [1.5.2](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.1...v1.5.2) (2026-03-29)
 
 
