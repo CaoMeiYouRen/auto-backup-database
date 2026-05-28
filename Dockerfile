@@ -6,6 +6,7 @@ RUN npm install -g pnpm@11
 FROM nodejs AS builder
 
 WORKDIR /app
+ENV CI=true
 
 # 复制依赖配置并安装全部依赖（便于分析）
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
