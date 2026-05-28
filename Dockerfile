@@ -8,7 +8,7 @@ FROM nodejs AS builder
 WORKDIR /app
 
 # 复制依赖配置并安装全部依赖（便于分析）
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
@@ -33,7 +33,7 @@ RUN apk update && apk add --no-cache tar openssl tzdata mongodb-tools mariadb-cl
 
 WORKDIR /app
 ENV NODE_ENV=production
-ENV TZ Asia/Shanghai
+ENV TZ=Asia/Shanghai
 
 # 从 minifier 复制精简后的 node_modules，从 builder 复制构建结果
 COPY --from=minifier /app/app-minimal/node_modules ./node_modules
