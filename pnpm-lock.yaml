@@ -69,8 +69,8 @@ importers:
         specifier: ^2.8.1
         version: 2.8.1
       yaml:
-        specifier: ^2.8.3
-        version: 2.8.3
+        specifier: ^2.9.0
+        version: 2.9.0
       zx:
         specifier: ^8.8.5
         version: 8.8.5
@@ -143,10 +143,10 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^8.0.14
-        version: 8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3)
+        version: 8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3))
+        version: 4.1.5(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
 
 packages:
 
@@ -4374,8 +4374,8 @@ packages:
     resolution: {integrity: sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==}
     engines: {node: '>=18'}
 
-  yaml@2.8.3:
-    resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
+  yaml@2.9.0:
+    resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
     engines: {node: '>= 14.6'}
     hasBin: true
 
@@ -5712,13 +5712,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@4.1.5(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3))':
+  '@vitest/mocker@4.1.5(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.1.5
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3)
+      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.1.5':
     dependencies:
@@ -7448,7 +7448,7 @@ snapshots:
       picomatch: 4.0.4
       string-argv: 0.3.2
       tinyexec: 1.1.1
-      yaml: 2.8.3
+      yaml: 2.9.0
 
   listr2@9.0.5:
     dependencies:
@@ -9081,7 +9081,7 @@ snapshots:
       unist-util-stringify-position: 3.0.3
       vfile-message: 3.1.4
 
-  vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3):
+  vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
@@ -9094,12 +9094,12 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.6.1
       tsx: 4.22.3
-      yaml: 2.8.3
+      yaml: 2.9.0
 
-  vitest@4.1.5(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3)):
+  vitest@4.1.5(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.5
-      '@vitest/mocker': 4.1.5(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3))
+      '@vitest/mocker': 4.1.5(vite@8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.5
       '@vitest/runner': 4.1.5
       '@vitest/snapshot': 4.1.5
@@ -9116,7 +9116,7 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.16
       tinyrainbow: 3.1.0
-      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.8.3)
+      vite: 8.0.14(@types/node@25.9.1)(esbuild@0.25.12)(jiti@2.6.1)(tsx@4.22.3)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 25.9.1
@@ -9226,7 +9226,7 @@ snapshots:
 
   yallist@5.0.0: {}
 
-  yaml@2.8.3: {}
+  yaml@2.9.0: {}
 
   yargs-parser@20.2.9: {}
 
