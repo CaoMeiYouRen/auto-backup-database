@@ -93,7 +93,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "better-bytes": "^1.2.6",
     "cron": "^4.4.0",
     "dayjs": "^1.11.21",
