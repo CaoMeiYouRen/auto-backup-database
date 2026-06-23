@@ -1,12 +1,5 @@
 # auto-backup-database
 
-## [1.5.4](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.3...v1.5.4) (2026-05-28)
-
-
-### 🐛 Bug 修复
-
-* **docker:** 修复 CI 非TTY安装中断 ([074fbdf](https://github.com/CaoMeiYouRen/auto-backup-database/commit/074fbdf))
-
 ## [1.5.3](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.2...v1.5.3) (2026-05-28)
 
 

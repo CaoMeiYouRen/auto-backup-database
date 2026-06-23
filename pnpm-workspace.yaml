@@ -1,6 +1,7 @@
 allowBuilds:
   esbuild: true
 overrides:
+  form-data: ^4.0.6
   compare-func: ^2.0.0
   katex: ^0.16.21
   esbuild: ^0.25.0
@@ -10,7 +11,7 @@ overrides:
   brace-expansion: ^2.0.3
   axios: ^1.15.2
   minimatch: ^3.1.4
-  undici: ^7.24.0
+  undici: ^7.28.0
   fast-uri: ^3.1.2
   flatted: ^3.4.2
   tar: ^7.5.11
@@ -18,7 +19,7 @@ overrides:
   lodash: ^4.17.24
   picomatch: ^4.0.4
   tmp: ^0.2.6
-  nodemailer: ^8.0.5
+  nodemailer: ^9.0.1
   ip-address: ^10.1.1
   diff: ^5.2.2
   glob: ^13.0.6
