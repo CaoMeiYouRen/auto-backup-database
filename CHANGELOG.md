@@ -1,5 +1,12 @@
 # auto-backup-database
 
+# [1.7.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.6.0...v1.7.0) (2026-08-10)
+
+
+### ✨ 新功能
+
+* **postgresql:** 新增 pg_dumpall 全库备份支持 ([fcd5aff](https://github.com/CaoMeiYouRen/auto-backup-database/commit/fcd5aff))
+
 # [1.6.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.4...v1.6.0) (2026-08-10)
 
 
