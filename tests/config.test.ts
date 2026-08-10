@@ -486,4 +486,69 @@ projects:
             expect(config.projects[0].dumpOptions?.format).toBe('custom')
         }
     })
+
+    it('应该支持通用备份模式的 paths 配置', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: file-backup
+    dbType: file
+    paths:
+      - "/data/apps/config"
+      - "/data/archives/*.zip"
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
+      skipExtensions:
+        - .zip
+        - .tar.gz
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
+
+        expect(config.projects[0].dbType).toBe('file')
+        if (config.projects[0].dbType === 'file') {
+            expect(config.projects[0].paths).toEqual(['/data/apps/config', '/data/archives/*.zip'])
+            expect(config.projects[0].compress.skipExtensions).toEqual(['.zip', '.tar.gz'])
+        }
+    })
+
+    it('应该校验通用备份模式必须提供非空 paths', () => {
+        writeFileSync(configPath, `
+projects:
+  - name: file-backup
+    dbType: file
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: true
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+        writeFileSync(envPath, '')
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('通用备份模式需要至少一个非空的 paths 字段')
+    })
 })

@@ -159,6 +159,27 @@ projects:
       localEnabled: true
       remoteEnabled: true
 
+  - name: my-files
+    dbType: file # 通用备份模式：直接备份指定的文件或文件夹
+    paths: # 支持 Glob 语法，可混合文件和目录
+      - "/data/apps/my-app/config"
+      - "/data/archives/*.zip"
+    backupSchedule: "0 1 * * *"
+    compress:
+      enabled: true
+      password: true
+      skipExtensions: [".zip", ".tar.gz"] # 已压缩文件扩展名白名单（可选，默认内置常见压缩格式）
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+
 # 通知配置（可选）
 notify:
   enabled: true
@@ -229,6 +250,16 @@ PostgreSQL 备份基于官方 `pg_dump` 工具实现：
 - 默认使用单文件 `custom` 格式导出，便于后续通过 `pg_restore` 做选择性恢复。
 - 当项目级 `compress.enabled` 开启时，默认关闭 `pg_dump` 内置压缩，避免重复压缩；若显式设置 `dumpOptions.compression > 0`，将被视为配置冲突。
 - PostgreSQL 备份必须提供数据库名，可以放在 `connection.uri` 中，也可以通过 `connection.database` 单独指定。
+
+### 6. 通用文件/文件夹备份说明
+
+通用备份模式（`dbType: file`）直接备份指定的文件或文件夹，复用完整的压缩、加密、本地/远程存储与生命周期清理流程：
+
+- `paths` 为必填数组，支持 Glob 语法，可混合指定文件与目录；目录会递归复制并保留目录结构，同名文件自动追加序号避免覆盖。
+- 压缩策略（方案 A）：仅当全部备份产物都是压缩文件时跳过压缩、原样传输；只要存在目录或未压缩文件，就整体打包为 `.tar.gz`。
+- 已压缩文件的判定按扩展名白名单进行：默认内置常见压缩格式（`.zip`、`.tar.gz`、`.tgz`、`.gz`、`.7z`、`.rar` 等），可通过 `compress.skipExtensions` 自定义。
+- 加密与压缩解耦：即使跳过压缩，配置了 `compress.password` 时仍会对每个备份产物逐个加密。
+- 压缩、加密、存储和清理行为与数据库备份完全一致，不依赖任何外部数据库工具。
 
 ## 使用
 

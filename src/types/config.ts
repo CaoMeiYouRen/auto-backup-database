@@ -3,7 +3,7 @@ import type { NotifyConfig } from '@/notify'
 /**
  * 数据库类型
  */
-export type DatabaseType = 'sqlite' | 'mysql' | 'postgresql' | 'mongodb'
+export type DatabaseType = 'sqlite' | 'mysql' | 'postgresql' | 'mongodb' | 'file'
 
 /**
  * 保留策略配置
@@ -23,6 +23,12 @@ export interface CompressConfig {
     enabled: boolean
     /** 是否使用密码加密（从环境变量读取） */
     password?: boolean
+    /**
+     * 已压缩文件的扩展名白名单
+     * 备份产物全部命中该列表时跳过压缩（仅对单个文件产物生效，目录不参与判断）
+     * 默认使用内置常见压缩格式列表
+     */
+    skipExtensions?: string[]
 }
 
 /**
@@ -216,9 +222,19 @@ export interface MySQLProjectConfig extends BaseProjectConfig {
 }
 
 /**
+ * 通用文件/文件夹备份项目配置
+ */
+export interface FileProjectConfig extends BaseProjectConfig {
+    /** 数据库类型 */
+    dbType: 'file'
+    /** 要备份的文件或文件夹路径列表（支持 Glob 语法，可混合文件与目录） */
+    paths: string[]
+}
+
+/**
  * 项目配置
  */
-export type ProjectConfig = SQLiteProjectConfig | MongoDBProjectConfig | PostgreSQLProjectConfig | MySQLProjectConfig
+export type ProjectConfig = SQLiteProjectConfig | MongoDBProjectConfig | PostgreSQLProjectConfig | MySQLProjectConfig | FileProjectConfig
 
 /**
  * 应用配置（展开后的统一配置对象）

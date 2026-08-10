@@ -36,7 +36,7 @@
     - 自定义备份周期 (Cron 表达式)。
     - 本地与远程备份独立开关。
 - **文件管理与安全**:
-    - 备份文件强制压缩。
+    - 备份文件默认压缩；通用备份模式下若备份产物已全部为压缩格式则跳过重复压缩。
     - 支持可选的备份包加密（增加密码保护）。
     - OSS 上传自动设置为 **Private** 权限。
 - **生命周期管理**:
@@ -294,8 +294,7 @@ pg_dump \
 ## 7. MySQL 备份设计
 
 ### 7.1 方案选择
-- 使用 MySQL 官方 `mysqldump` 作为备份引擎，而不是通过驱动自行拼接 SQL。
-- 选择 `mysqldump` 的原因：
+- 使用 MySQL 官方 `mysqldump` 作为备份引擎，而不是通过驱动自行拼接 SQL。- 选择 `mysqldump` 的原因：
     - 官方工具，兼容常见 MySQL 逻辑备份场景。
     - 输出标准 SQL 文件，便于使用 `mysql` 命令直接恢复。
     - 能覆盖单数据库、多数据库以及全库导出等典型运维需求。
@@ -387,8 +386,59 @@ mysqldump \
 - 日志中应记录最终执行参数摘要，但必须避免输出明文密码。
 - 通知消息应能区分“数据库备份失败”和“后续上传失败”。
 
-## 8. 系统架构
-### 8.1 配置文件结构 (config.yml)
+## 8. 通用文件/文件夹备份设计
+
+### 8.1 方案选择
+- 新增 `file` 类型的通用备份模式（`dbType: file`），直接备份配置指定的文件或文件夹，不依赖任何外部工具。
+- 复用现有 `DatabaseProvider` 抽象与 `BackupService` 流水线（压缩、加密、本地/远程存储、生命周期清理、通知），保持行为与数据库备份一致。
+
+### 8.2 配置模型扩展
+```yaml
+- name: my-files
+    dbType: file
+    paths:
+        - "/data/apps/my-app/config"
+        - "/data/archives/*.zip"
+    backupSchedule: "0 1 * * *"
+    compress:
+        enabled: true
+        password: true
+        skipExtensions: [".zip", ".tar.gz"]
+    retention:
+        local:
+            days: 7
+            maxSize: 2GB
+        remote:
+            days: 30
+            maxSize: 10GB
+    options:
+        localEnabled: true
+        remoteEnabled: true
+```
+
+约束如下：
+- `paths` 必填，为非空字符串数组，支持 Glob 语法，可混合文件与目录。
+- `compress.skipExtensions` 为已压缩文件扩展名白名单（可选），默认使用内置常见压缩格式列表；支持 `zip` 或 `.zip` 写法，不区分大小写。
+
+### 8.3 FileProvider 设计
+- 新增 `FileProvider`，继承 `DatabaseProvider`。
+- `getDatabaseFiles()` 对每个 `paths` 执行 glob 展开，返回文件与目录列表，并去重。
+- `backup(outputDir)` 的核心流程：
+    1. 展开 `paths` 得到源列表，为空时返回明确错误。
+    2. 文件源直接复制；目录源递归复制（保留目录名与结构），重名文件自动追加序号（`app.zip` → `app-1.zip`）避免覆盖。
+    3. 产物进入现有压缩、加密、本地存储、OSS 上传、生命周期清理流程。
+
+### 8.4 压缩跳过策略（方案 A）
+- 仅当全部备份产物都是已压缩文件时跳过压缩、原样传输；只要存在目录或未压缩文件，就整体打包为 `.tar.gz`。
+- 已压缩判定按扩展名白名单匹配（目录始终视为未压缩）。
+- 压缩结果标记 `skipped: true`，整体成功判定不受影响。
+
+### 8.5 加密解耦
+- 加密步骤从压缩块中独立出来：即使跳过压缩，配置了 `compress.password` 时仍会对每个备份产物逐个加密（多产物逐个生成 `.enc` 文件）。
+- `BackupTaskResult.encrypt` 新增 `encryptedFiles` 字段；传输源路径优先使用加密产物。
+
+## 9. 系统架构
+### 9.1 配置文件结构 (config.yml)
 ```yaml
 oss:
     region: "${OSS_REGION}"
@@ -494,6 +544,27 @@ projects:
             localEnabled: true
             remoteEnabled: true
 
+    - name: my-files
+        dbType: file
+        paths:
+            - "/data/apps/my-app/config"
+            - "/data/archives/*.zip"
+        backupSchedule: "0 1 * * *"
+        compress:
+            enabled: true
+            password: true
+            skipExtensions: [".zip", ".tar.gz"]
+        retention:
+            local:
+                days: 7
+                maxSize: 2GB
+            remote:
+                days: 30
+                maxSize: 10GB
+        options:
+            localEnabled: true
+            remoteEnabled: true
+
 notify:
     enabled: true
     type: Dingtalk
@@ -504,7 +575,7 @@ notify:
         msgtype: markdown
 ```
 
-### 8.2 环境变量 (.env)
+### 8.6 环境变量 (.env)
 ```env
 # OSS 配置
 OSS_REGION=oss-cn-hangzhou
@@ -530,13 +601,14 @@ POSTGRESQL_URI=postgresql://postgres:password@127.0.0.1:5432
 POSTGRESQL_DATABASE=app
 ```
 
-### 8.3 核心模块设计
+### 9.3 核心模块设计
 - **`ConfigLoader`**: 加载 `.env`，解析 `config.yml`，展开占位符，产出统一配置对象并执行校验。
 - **`DatabaseProvider`**: 抽象类，定义 `backup()` 方法。
     - `SQLiteProvider`: 实现文件直接拷贝备份。
     - `MongoDBProvider`: 调用 `mongodump` 生成归档文件。
     - `MySQLProvider`: 调用 `mysqldump` 生成 SQL 逻辑备份。
     - `PostgreSQLProvider`: 调用 `pg_dump` 生成单文件归档。
+    - `FileProvider`: 通用备份模式，直接备份指定的文件或文件夹。
 - **`BackupService`**: 核心逻辑流。
     1. 触发备份。
     2. 压缩/加密。
@@ -549,12 +621,13 @@ POSTGRESQL_DATABASE=app
 - **`NotifyService`**:
     - 基于 `push-all-in-one` 实现，负责备份成功、失败、清理等事件的消息推送。
 
-## 9. 部署说明
+## 10. 部署说明
 - **Docker**:
     - 挂载 `config.yml` 和 `.env` 到 `/app/config/`。
     - 挂载需要备份的数据库文件夹到容器内。
     - 挂载本地备份输出路径。
     - 运行镜像内预装 `mongodump`、`mysqldump` 兼容工具与 `pg_dump`，可直接执行 MongoDB / MySQL / PostgreSQL 备份。
+    - 通用备份模式（`dbType: file`）无需任何外部工具，挂载对应文件或目录即可。
 - **非 Docker**:
     - 需要用户自行安装 MongoDB Database Tools。
     - 需要确保 `mongodump --version` 可以在终端直接执行。
@@ -562,8 +635,9 @@ POSTGRESQL_DATABASE=app
     - 需要确保 `mysqldump --version` 可以在终端直接执行。
     - 需要用户自行安装 PostgreSQL Client Tools。
     - 需要确保 `pg_dump --version` 可以在终端直接执行。
+    - 通用备份模式（`dbType: file`）无需安装任何外部工具。
 
-## 10. 后续扩展性
+## 11. 后续扩展性
 - **消息通知**: 备份成功/失败发送到 Webhook (通知、企业微信、飞书等)。
 - **监控**: 对接 Prometheus 展示备份状态。
 - **恢复能力**: 后续可补充 `mongorestore` 驱动的恢复命令与演练文档。

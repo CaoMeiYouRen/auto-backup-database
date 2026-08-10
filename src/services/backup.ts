@@ -9,7 +9,8 @@ import { MongoDBProvider } from '@/providers/mongodb'
 import { MySQLProvider } from '@/providers/mysql'
 import { PostgreSQLProvider } from '@/providers/postgresql'
 import { SQLiteProvider } from '@/providers/sqlite'
-import { compressDirectory } from '@/utils/compress'
+import { FileProvider } from '@/providers/file'
+import { compressDirectory, isCompressedFile } from '@/utils/compress'
 import { encryptAndDelete } from '@/utils/encrypt'
 import { LocalStorage } from '@/storage/local'
 import { OSSStorage, type UploadResult } from '@/storage/oss'
@@ -79,59 +80,78 @@ export class BackupService {
 
             debug(`数据库备份完成，文件数: ${backupResult.backupFiles.length}`)
 
-            // 2. 压缩备份文件
+            // 2. 压缩备份文件（若全部产物已为压缩格式则跳过）
             if (project.compress.enabled) {
                 const backupDir = join(tempDir, project.name)
-                const compressResult = await compressDirectory(backupDir, join(tempDir, `${project.name}-backup`))
+                const backupFiles = backupResult.backupFiles
 
-                result.compress = {
-                    success: compressResult.success,
-                    compressedFile: compressResult.compressedFile,
-                    originalSize: compressResult.originalSize,
-                    compressedSize: compressResult.compressedSize,
-                    error: compressResult.error,
-                }
+                // 方案 A：只要任一产物是目录或非压缩文件，整体打包压缩；全部为压缩文件才跳过
+                const allAlreadyCompressed = backupFiles.length > 0
+                    && backupFiles.every((file) => isCompressedFile(file, project.compress.skipExtensions))
 
-                if (!compressResult.success) {
-                    debug(`压缩失败: ${compressResult.error}`)
-                    await this.notifyFailed(result)
-                    return result
-                }
+                if (allAlreadyCompressed) {
+                    result.compress = {
+                        success: true,
+                        skipped: true,
+                        compressedFile: backupFiles.length === 1 ? backupFiles[0] : undefined,
+                    }
+                    debug('备份产物已全部为压缩格式，跳过压缩')
+                } else {
+                    const compressResult = await compressDirectory(backupDir, join(tempDir, `${project.name}-backup`))
 
-                debug(`压缩完成: ${compressResult.compressedFile}`)
-
-                // 3. 加密（如果配置了密码）
-                if (project.compress.password) {
-                    if (!fullConfig.security?.backupPassword) {
-                        debug('加密失败: 配置了密码加密但未在配置中设置 security.backupPassword')
-                        result.encrypt = {
-                            success: false,
-                            error: '未设置 security.backupPassword',
-                        }
-                    } else {
-                        const encryptResult = await encryptAndDelete(
-                            compressResult.compressedFile,
-                            fullConfig.security.backupPassword,
-                        )
-
-                        result.encrypt = {
-                            success: encryptResult.success,
-                            error: encryptResult.error,
-                        }
-
-                        if (!encryptResult.success) {
-                            debug(`加密失败: ${encryptResult.error}`)
-                        } else {
-                            debug(`加密完成: ${encryptResult.encryptedFile}`)
-                            // 更新压缩文件路径为加密后的文件
-                            result.compress.compressedFile = encryptResult.encryptedFile
-                        }
+                    result.compress = {
+                        success: compressResult.success,
+                        compressedFile: compressResult.compressedFile,
+                        originalSize: compressResult.originalSize,
+                        compressedSize: compressResult.compressedSize,
+                        error: compressResult.error,
                     }
 
-                    if (!result.encrypt.success) {
+                    if (!compressResult.success) {
+                        debug(`压缩失败: ${compressResult.error}`)
                         await this.notifyFailed(result)
                         return result
                     }
+
+                    debug(`压缩完成: ${compressResult.compressedFile}`)
+                }
+            }
+
+            // 3. 加密（与压缩解耦：跳过压缩时对原始产物加密，否则对压缩产物加密）
+            if (project.compress.password) {
+                if (!fullConfig.security?.backupPassword) {
+                    debug('加密失败: 配置了密码加密但未在配置中设置 security.backupPassword')
+                    result.encrypt = {
+                        success: false,
+                        error: '未设置 security.backupPassword',
+                    }
+                } else {
+                    const encryptTargets = result.compress?.compressedFile
+                        ? [result.compress.compressedFile]
+                        : backupResult.backupFiles
+
+                    const encryptResult = await this.encryptFiles(encryptTargets, fullConfig.security.backupPassword)
+
+                    result.encrypt = {
+                        success: encryptResult.success,
+                        encryptedFiles: encryptResult.encryptedFiles,
+                        error: encryptResult.error,
+                    }
+
+                    if (!encryptResult.success) {
+                        debug(`加密失败: ${encryptResult.error}`)
+                    } else {
+                        debug(`加密完成，文件数: ${encryptResult.encryptedFiles.length}`)
+                        // 更新压缩产物路径为加密后的文件
+                        if (result.compress?.compressedFile) {
+                            result.compress.compressedFile = encryptResult.encryptedFiles[0]
+                        }
+                    }
+                }
+
+                if (!result.encrypt.success) {
+                    await this.notifyFailed(result)
+                    return result
                 }
             }
 
@@ -199,8 +219,37 @@ export class BackupService {
                 return new MySQLProvider(project)
             case 'postgresql':
                 return new PostgreSQLProvider(project)
+            case 'file':
+                return new FileProvider(project)
             default:
                 throw new Error(`不支持的数据库类型: ${String((project as { dbType?: string }).dbType ?? 'unknown')}`)
+        }
+    }
+
+    /**
+     * 加密多个文件（逐个加密并删除原文件）
+     */
+    private async encryptFiles(
+        filePaths: string[],
+        password: string,
+    ): Promise<{ success: boolean, encryptedFiles: string[], error?: string }> {
+        const encryptedFiles: string[] = []
+
+        for (const filePath of filePaths) {
+            const result = await encryptAndDelete(filePath, password)
+            if (!result.success) {
+                return {
+                    success: false,
+                    encryptedFiles,
+                    error: result.error,
+                }
+            }
+            encryptedFiles.push(result.encryptedFile)
+        }
+
+        return {
+            success: true,
+            encryptedFiles,
         }
     }
 
@@ -383,6 +432,11 @@ export class BackupService {
      * 获取可用于传输的备份产物路径
      */
     private getTransferSourcePaths(result: BackupTaskResult): string[] {
+        // 加密产物优先（加密可能作用于多个已压缩原文件）
+        if (result.encrypt?.encryptedFiles?.length) {
+            return result.encrypt.encryptedFiles
+        }
+
         if (result.compress?.compressedFile) {
             return [result.compress.compressedFile]
         }

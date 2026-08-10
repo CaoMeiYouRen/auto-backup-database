@@ -130,6 +130,12 @@ export class ConfigLoader {
                     throw new Error(`项目 "${project.name}" 配置错误: SQLite 缺少 dbPath 字段`)
                 }
                 break
+            case 'file': {
+                if (!project.paths?.length || project.paths.some((path) => !path)) {
+                    throw new Error(`项目 "${project.name}" 配置错误: 通用备份模式需要至少一个非空的 paths 字段`)
+                }
+                break
+            }
             case 'mongodb':
                 if (!project.connection?.uri) {
                     throw new Error(`项目 "${project.name}" 配置错误: MongoDB 缺少 connection.uri 字段`)

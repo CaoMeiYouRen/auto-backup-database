@@ -15,6 +15,7 @@ export type {
     MongoDBProjectConfig,
     MySQLProjectConfig,
     PostgreSQLProjectConfig,
+    FileProjectConfig,
     ProjectConfig,
     AppConfig,
     OSSConfig,
@@ -31,12 +32,13 @@ export { MongoDBProvider } from './providers/mongodb'
 export { MySQLProvider } from './providers/mysql'
 export { PostgreSQLProvider } from './providers/postgresql'
 export { SQLiteProvider } from './providers/sqlite'
+export { FileProvider } from './providers/file'
 
 // 文件工具
 export { getMimeType } from './utils/file'
 
 // 压缩工具
-export { compress, compressMultiple, compressDirectory } from './utils/compress'
+export { compress, compressMultiple, compressDirectory, isCompressedFile, DEFAULT_COMPRESSED_EXTENSIONS } from './utils/compress'
 export type { CompressResult } from './utils/compress'
 
 // 加密工具

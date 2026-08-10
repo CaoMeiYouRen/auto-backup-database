@@ -104,6 +104,27 @@ projects:
       localEnabled: true
       remoteEnabled: true
 
+  - name: my-files
+    dbType: file # 通用备份模式：直接备份指定的文件或文件夹
+    paths: # 支持 Glob 语法，可混合文件和目录
+      - "/data/apps/my-app/config"
+      - "/data/archives/*.zip"
+    backupSchedule: "0 1 * * *"
+    compress:
+      enabled: true
+      password: true
+      skipExtensions: [".zip", ".tar.gz"] # 已压缩文件扩展名白名单（可选，默认内置常见压缩格式）
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+
 # 通知配置（可选）
 notify:
   enabled: true

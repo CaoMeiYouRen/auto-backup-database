@@ -141,13 +141,17 @@ export class NotifyService {
 
         // 压缩详情
         if (result.compress) {
-            lines.push(`\n** - 压缩**: ${result.compress.success ? '✅' : '❌'}`)
-            if (result.compress.error) {
-                lines.push(`   - 错误: ${result.compress.error}`)
-            }
-            if (result.compress.originalSize !== undefined && result.compress.compressedSize !== undefined) {
-                lines.push(`   - 原始大小: ${format(result.compress.originalSize)}`)
-                lines.push(`   - 压缩后大小: ${format(result.compress.compressedSize)}`)
+            if (result.compress.skipped) {
+                lines.push(`\n** - 压缩**: ⏭️ 已跳过（产物已为压缩格式）`)
+            } else {
+                lines.push(`\n** - 压缩**: ${result.compress.success ? '✅' : '❌'}`)
+                if (result.compress.error) {
+                    lines.push(`   - 错误: ${result.compress.error}`)
+                }
+                if (result.compress.originalSize !== undefined && result.compress.compressedSize !== undefined) {
+                    lines.push(`   - 原始大小: ${format(result.compress.originalSize)}`)
+                    lines.push(`   - 压缩后大小: ${format(result.compress.compressedSize)}`)
+                }
             }
         }
 

@@ -4,6 +4,47 @@ import { stat } from 'node:fs/promises'
 import archiver from 'archiver'
 
 /**
+ * 默认已压缩文件扩展名白名单
+ * 用于判断文件是否已是压缩格式，从而跳过重复压缩
+ */
+export const DEFAULT_COMPRESSED_EXTENSIONS = [
+    '.zip',
+    '.tar.gz',
+    '.tgz',
+    '.gz',
+    '.tar.bz2',
+    '.tbz2',
+    '.bz2',
+    '.tar.xz',
+    '.txz',
+    '.xz',
+    '.7z',
+    '.rar',
+    '.zst',
+    '.tar.zst',
+    '.lz4',
+    '.tar.lz4',
+]
+
+/**
+ * 判断文件是否已属于压缩格式（按扩展名白名单，不区分大小写）
+ * 目录始终返回 false
+ * @param filePath 文件路径
+ * @param extensions 扩展名白名单（可选，默认使用内置列表），支持 "zip" 或 ".zip" 写法
+ */
+export function isCompressedFile(filePath: string, extensions?: string[]): boolean {
+    const normalizedExtensions = (extensions && extensions.length > 0
+        ? extensions
+        : DEFAULT_COMPRESSED_EXTENSIONS).map((ext) => {
+        const normalized = ext.startsWith('.') ? ext : `.${ext}`
+        return normalized.toLowerCase()
+    })
+
+    const lowerPath = filePath.toLowerCase()
+    return normalizedExtensions.some((ext) => lowerPath.endsWith(ext))
+}
+
+/**
  * 压缩结果
  */
 export interface CompressResult {

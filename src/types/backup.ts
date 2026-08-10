@@ -13,6 +13,8 @@ export interface BackupTaskResult {
     /** 压缩结果 */
     compress?: {
         success: boolean
+        /** 是否跳过压缩（备份产物已全部是压缩格式） */
+        skipped?: boolean
         compressedFile?: string
         originalSize?: number
         compressedSize?: number
@@ -21,6 +23,8 @@ export interface BackupTaskResult {
     /** 加密结果 */
     encrypt?: {
         success: boolean
+        /** 加密后的文件路径列表 */
+        encryptedFiles?: string[]
         error?: string
     }
     /** 本地上传结果 */
