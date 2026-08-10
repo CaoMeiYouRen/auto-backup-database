@@ -17,7 +17,7 @@ export class PostgreSQLProvider extends DatabaseProvider<PostgreSQLProjectConfig
     readonly type = 'postgresql' as const
 
     /**
-     * 验证连接配置和 pg_dump 是否可用
+     * 验证连接配置和 pg_dump / pg_dumpall 是否可用
      */
     async validatePath(): Promise<boolean> {
         if (!this.config.connection?.uri) {
@@ -25,7 +25,7 @@ export class PostgreSQLProvider extends DatabaseProvider<PostgreSQLProjectConfig
         }
 
         try {
-            await this.ensurePgDumpAvailable()
+            await this.ensureExecutableAvailable()
             return true
         } catch {
             return false
@@ -47,19 +47,21 @@ export class PostgreSQLProvider extends DatabaseProvider<PostgreSQLProjectConfig
         const timestampStr = dayjs(timestamp).format('YYYY-MM-DD_HH-mm-ss')
 
         try {
-            await this.ensurePgDumpAvailable()
+            await this.ensureExecutableAvailable()
 
             const projectOutputDir = join(outputDir, this.config.name, timestampStr)
             if (!existsSync(projectOutputDir)) {
                 await mkdir(projectOutputDir, { recursive: true })
             }
 
-            const outputFormat = this.config.dumpOptions?.format ?? 'custom'
-            const extension = this.getFileExtension(outputFormat)
+            const executable = this.getExecutable()
+            const extension = this.getOutputExtension()
             const outputPath = join(projectOutputDir, `${this.config.name}-${timestampStr}.${extension}`)
-            const args = this.buildDumpArgs(outputPath)
+            const args = this.dumpAll
+                ? this.buildDumpAllArgs(outputPath)
+                : this.buildDumpArgs(outputPath)
 
-            await execFile('pg_dump', args, {
+            await execFile(executable, args, {
                 encoding: 'utf8',
                 windowsHide: true,
                 maxBuffer: 10 * 1024 * 1024,
@@ -83,16 +85,44 @@ export class PostgreSQLProvider extends DatabaseProvider<PostgreSQLProjectConfig
     }
 
     /**
-     * 检查 pg_dump 是否可用
+     * 是否启用全库备份（pg_dumpall）
      */
-    private async ensurePgDumpAvailable(): Promise<void> {
+    private get dumpAll(): boolean {
+        return this.config.dumpOptions?.allDatabases === true
+    }
+
+    /**
+     * 获取当前模式对应的可执行文件名
+     */
+    private getExecutable(): 'pg_dump' | 'pg_dumpall' {
+        return this.dumpAll ? 'pg_dumpall' : 'pg_dump'
+    }
+
+    /**
+     * 获取备份产物后缀
+     */
+    private getOutputExtension(): string {
+        if (this.dumpAll) {
+            return 'sql'
+        }
+
+        return this.getFileExtension(this.config.dumpOptions?.format ?? 'custom')
+    }
+
+    /**
+     * 检查当前模式对应的命令行工具是否可用
+     */
+    private async ensureExecutableAvailable(): Promise<void> {
+        const executable = this.getExecutable()
+
         try {
-            await execFile('pg_dump', ['--version'], {
+            await execFile(executable, ['--version'], {
                 encoding: 'utf8',
                 windowsHide: true,
             })
         } catch {
-            throw new Error('未找到 pg_dump，请安装 PostgreSQL 客户端工具，并确保 pg_dump 已加入 PATH')
+            const toolName = executable === 'pg_dumpall' ? 'pg_dumpall' : 'pg_dump'
+            throw new Error(`未找到 ${toolName}，请安装 PostgreSQL 客户端工具，并确保 ${toolName} 已加入 PATH`)
         }
     }
 
@@ -125,6 +155,40 @@ export class PostgreSQLProvider extends DatabaseProvider<PostgreSQLProjectConfig
 
         if (this.config.dumpOptions?.create) {
             args.push('--create')
+        }
+
+        if (this.config.dumpOptions?.noOwner) {
+            args.push('--no-owner')
+        }
+
+        if (this.config.dumpOptions?.extraArgs?.length) {
+            args.push(...this.config.dumpOptions.extraArgs)
+        }
+
+        return args
+    }
+
+    /**
+     * 构造 pg_dumpall 参数（全库备份）
+     * pg_dumpall 仅支持 plain SQL 脚本输出，且不区分单个数据库，
+     * 连接串中的数据库名会被忽略，由 pg_dumpall 自动发现集群内全部数据库
+     */
+    private buildDumpAllArgs(outputPath: string): string[] {
+        const args = [
+            `--dbname=${this.config.connection.uri}`,
+            `--file=${outputPath}`,
+        ]
+
+        if (this.config.dumpOptions?.schemaOnly) {
+            args.push('--schema-only')
+        }
+
+        if (this.config.dumpOptions?.dataOnly) {
+            args.push('--data-only')
+        }
+
+        if (this.config.dumpOptions?.clean) {
+            args.push('--clean')
         }
 
         if (this.config.dumpOptions?.noOwner) {

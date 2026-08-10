@@ -210,7 +210,11 @@ mongodump \
     - 官方工具，兼容 PostgreSQL 版本演进与对象类型差异。
     - 支持 plain、custom、tar 等多种格式，便于兼顾审阅、归档与恢复。
     - 与 `pg_restore` 配套，适合后续补充恢复能力。
-- 当前阶段聚焦“单数据库逻辑备份”，不覆盖整实例级别的角色、表空间与多库导出；若有整实例需求，后续再补 `pg_dumpall` 方案。
+- 当前阶段聚焦“单数据库逻辑备份”；同时提供基于 `pg_dumpall` 的整实例全库备份模式（`dumpOptions.allDatabases`），覆盖角色、表空间与多库导出场景。
+- `pg_dumpall` 模式说明：
+    - 仅输出 plain SQL 脚本（无 custom/tar 格式与内置压缩），需 superuser 权限才能完整导出。
+    - 连接串中的数据库名会被忽略，由 `pg_dumpall` 自动发现集群内全部数据库。
+    - 输出为单个 `.sql` 文件，压缩交由项目级 `compress.enabled` 处理。
 
 ### 6.2 运行时依赖策略
 - **Docker 环境**: 在运行镜像中预装 PostgreSQL Client Tools，开箱即用。
@@ -249,11 +253,15 @@ projects:
 ```
 
 约束如下：
-- PostgreSQL 必须提供单个数据库名，可以直接写在 `connection.uri` 中，也可以通过 `connection.database` 补充。
+- PostgreSQL 必须提供单个数据库名，可以直接写在 `connection.uri` 中，也可以通过 `connection.database` 补充；仅当启用 `dumpOptions.allDatabases` 时数据库名可选（`pg_dumpall` 会忽略连接串中的数据库名）。
 - 默认格式采用 `custom`，生成单文件 `.dump`，便于后续使用 `pg_restore`。
 - 若启用项目级 `compress.enabled`，则默认将 `pg_dump` 的 `compression` 视为 `0`，避免双重压缩。
 - 若显式配置 `dumpOptions.compression > 0` 且项目级压缩已开启，应在配置校验阶段直接报错。
 - `tar` 格式不支持 `pg_dump` 内置压缩，应在校验阶段阻止无效组合。
+- `allDatabases` 模式限制：
+    - 仅支持 `plain` 格式（`format` 只能缺省或为 `plain`）。
+    - 不支持 `dumpOptions.compression > 0`（`pg_dumpall` 无内置压缩），压缩由外层 `compress.enabled` 兜底。
+    - 不允许配置 `create`（导出内容已包含 `CREATE DATABASE`）。
 
 ### 6.4 PostgreSQLProvider 设计
 - 新增 `PostgreSQLProvider`，继承 `DatabaseProvider`。
@@ -261,9 +269,9 @@ projects:
 - `getDatabaseFiles()` 对 PostgreSQL 不再表示源数据库文件列表，返回空数组以保持抽象层兼容。
 - `backup(outputDir)` 的核心流程：
     1. 构造本次备份输出目录。
-    2. 根据 `dumpOptions.format` 选择输出文件后缀（`.sql` / `.dump` / `.tar`）。
-    3. 组装 `pg_dump` 参数。
-    4. 以参数数组方式执行 `pg_dump --dbname=<uri> --file=<path> --format=<format>`。
+    2. 根据模式选择输出文件后缀（单库：`.sql` / `.dump` / `.tar`；全库 `allDatabases`：固定 `.sql`）。
+    3. 组装参数：单库走 `pg_dump`，全库走 `pg_dumpall`（`--dbname=<uri> --file=<path>`，连接串数据库名被忽略）。
+    4. 以参数数组方式执行。
     5. 输出单个归档文件并复用现有压缩、加密、本地存储、OSS 上传、生命周期清理流程。
 
 建议默认命令形态：
@@ -276,6 +284,14 @@ pg_dump \
     --compress=0
 ```
 
+`allDatabases` 模式命令形态：
+
+```bash
+pg_dumpall \
+    --dbname="postgresql://postgres:password@127.0.0.1:5432/postgres" \
+    --file="/tmp/backup/postgres-all/2026-03-26_04-00-00/postgres-all-2026-03-26_04-00-00.sql"
+```
+
 ### 6.5 与现有备份流水线的集成
 - `BackupService.createProvider()` 增加 `postgresql` 分支。
 - 压缩层保持不变：PostgreSQL 备份结果仍作为普通文件进入现有统一压缩接口。
@@ -284,10 +300,10 @@ pg_dump \
 
 ### 6.6 异常处理与可观测性
 - 以下场景需要给出明确错误信息：
-    - `pg_dump` 未安装或不在 `PATH` 中。
+    - `pg_dump` / `pg_dumpall` 未安装或不在 `PATH` 中。
     - URI 无法连接、认证失败、权限不足。
-    - 未指定数据库名。
-    - 用户显式配置了不兼容的压缩/格式组合。
+    - 未指定数据库名（`allDatabases` 模式除外）。
+    - 用户显式配置了不兼容的压缩/格式组合（含 `allDatabases` 与 `format` / `compression` / `create` 的冲突）。
 - 日志中应记录最终执行参数的摘要，但必须避免输出明文密码。
 - 通知消息应能区分“数据库备份失败”和“后续上传失败”。
 

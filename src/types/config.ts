@@ -100,7 +100,9 @@ export type PostgresDumpFormat = 'plain' | 'custom' | 'tar'
  * PostgreSQL dump 选项
  */
 export interface PostgresDumpOptions {
-    /** 输出格式，默认为 custom */
+    /** 备份全部数据库（使用 pg_dumpall，输出 plain SQL 脚本，仅支持全部库/角色/表空间整体备份） */
+    allDatabases?: boolean
+    /** 输出格式，默认为 custom（allDatabases 模式下仅支持 plain） */
     format?: PostgresDumpFormat
     /** pg_dump 内置压缩级别，0 表示禁用 */
     compression?: number

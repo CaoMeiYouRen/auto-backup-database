@@ -119,4 +119,51 @@ describe('PostgreSQLProvider', () => {
         expect(result.success).toBe(false)
         expect(result.error).toContain('未找到 pg_dump')
     })
+
+    it('应该在 allDatabases 模式下使用 pg_dumpall 导出全部数据库', async () => {
+        const dumpAllProject: PostgreSQLProjectConfig = {
+            ...project,
+            dumpOptions: {
+                allDatabases: true,
+                clean: true,
+                noOwner: true,
+                extraArgs: ['--no-role-passwords'],
+            },
+        }
+        const provider = new PostgreSQLProvider(dumpAllProject)
+
+        const result = await provider.backup(tempDir)
+
+        expect(result.success).toBe(true)
+        expect(result.backupFiles).toHaveLength(1)
+        expect(result.backupFiles[0].endsWith('.sql')).toBe(true)
+        expect(existsSync(result.backupFiles[0])).toBe(true)
+        expect(execFileMock).toHaveBeenCalledWith(
+            'pg_dumpall',
+            expect.arrayContaining([
+                '--dbname=postgresql://postgres:secret@127.0.0.1:5432',
+                '--clean',
+                '--no-owner',
+                '--no-role-passwords',
+            ]),
+            expect.any(Object),
+            expect.any(Function),
+        )
+    })
+
+    it('应该在 pg_dumpall 缺失时返回清晰错误', async () => {
+        execFileMock.mockImplementation((_file: string, _args: string[], _options: unknown, callback: (...callbackArgs: unknown[]) => void) => {
+            callback(new Error('spawn pg_dumpall ENOENT'))
+        })
+
+        const dumpAllProject: PostgreSQLProjectConfig = {
+            ...project,
+            dumpOptions: { allDatabases: true },
+        }
+        const provider = new PostgreSQLProvider(dumpAllProject)
+        const result = await provider.backup(tempDir)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('未找到 pg_dumpall')
+    })
 })

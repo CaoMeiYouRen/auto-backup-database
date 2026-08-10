@@ -104,6 +104,28 @@ projects:
       localEnabled: true
       remoteEnabled: true
 
+  - name: postgres-all
+    dbType: postgresql
+    connection:
+      uri: "${POSTGRESQL_URI}" # 全库备份时连接串中的数据库名会被 pg_dumpall 忽略
+    dumpOptions:
+      allDatabases: true # 使用 pg_dumpall 导出全部数据库（需 superuser 权限，仅支持 plain SQL 输出）
+      extraArgs: ["--no-role-passwords"]
+    backupSchedule: "0 4 * * *"
+    compress:
+      enabled: true # 全库备份不支持内置压缩，由外层压缩兜底
+      password: true
+    retention:
+      local:
+        days: 7
+        maxSize: 10GB
+      remote:
+        days: 30
+        maxSize: 50GB
+    options:
+      localEnabled: true
+      remoteEnabled: true
+
   - name: my-files
     dbType: file # 通用备份模式：直接备份指定的文件或文件夹
     paths: # 支持 Glob 语法，可混合文件和目录

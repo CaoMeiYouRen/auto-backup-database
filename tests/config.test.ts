@@ -5,6 +5,32 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfigLoader } from '@/config/loader'
 import type { FullConfig } from '@/types/config'
 
+function writePostgresAllFixture(configPath: string, envPath: string, dumpOptionsYaml: string, compressEnabled: boolean): void {
+    writeFileSync(configPath, `
+projects:
+  - name: postgres-all
+    dbType: postgresql
+    connection:
+      uri: "postgresql://postgres:secret@127.0.0.1:5432"
+${dumpOptionsYaml}
+    backupSchedule: "0 2 * * *"
+    compress:
+      enabled: ${compressEnabled}
+      password: false
+    retention:
+      local:
+        days: 7
+        maxSize: 2GB
+      remote:
+        days: 30
+        maxSize: 10GB
+    options:
+      localEnabled: true
+      remoteEnabled: false
+`)
+    writeFileSync(envPath, '')
+}
+
 describe('ConfigLoader', () => {
     let tempDir: string
     let configPath: string
@@ -448,6 +474,42 @@ projects:
         const loader = new ConfigLoader(configPath, envPath)
 
         expect(() => loader.load()).toThrow('PostgreSQL dumpOptions.compression 与 compress.enabled 不能同时启用')
+    })
+
+    it('应该允许 PostgreSQL allDatabases 模式不带数据库名', () => {
+        writePostgresAllFixture(configPath, envPath, '    dumpOptions:\n      allDatabases: true\n', true)
+
+        const loader = new ConfigLoader(configPath, envPath)
+        const config = loader.load()
+
+        expect(config.projects[0].dbType).toBe('postgresql')
+        if (config.projects[0].dbType === 'postgresql') {
+            expect(config.projects[0].dumpOptions?.allDatabases).toBe(true)
+        }
+    })
+
+    it('应该校验 PostgreSQL allDatabases 模式不支持 custom/tar 格式', () => {
+        writePostgresAllFixture(configPath, envPath, '    dumpOptions:\n      allDatabases: true\n      format: custom\n', true)
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('PostgreSQL 全库备份（allDatabases）仅支持 plain 格式输出')
+    })
+
+    it('应该校验 PostgreSQL allDatabases 模式不支持内置压缩', () => {
+        writePostgresAllFixture(configPath, envPath, '    dumpOptions:\n      allDatabases: true\n      compression: 6\n', false)
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('PostgreSQL 全库备份（allDatabases）不支持内置压缩')
+    })
+
+    it('应该校验 PostgreSQL allDatabases 模式不允许配置 create', () => {
+        writePostgresAllFixture(configPath, envPath, '    dumpOptions:\n      allDatabases: true\n      create: true\n', false)
+
+        const loader = new ConfigLoader(configPath, envPath)
+
+        expect(() => loader.load()).toThrow('PostgreSQL 全库备份（allDatabases）不需要配置 create')
     })
 
     it('应该支持带默认数据库名的 PostgreSQL 配置', () => {

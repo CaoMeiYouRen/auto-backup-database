@@ -182,7 +182,9 @@ export class ConfigLoader {
                     throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 缺少 connection.uri 字段`)
                 }
 
-                if (!project.connection.database && !this.hasDatabaseNameInConnection(project.connection.uri)) {
+                const dumpAll = project.dumpOptions?.allDatabases === true
+
+                if (!dumpAll && !project.connection.database && !this.hasDatabaseNameInConnection(project.connection.uri)) {
                     throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 需要在 connection.uri 或 connection.database 中提供数据库名`)
                 }
 
@@ -195,7 +197,22 @@ export class ConfigLoader {
                     if (!Number.isInteger(compression) || compression < 0 || compression > 9) {
                         throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL dumpOptions.compression 必须是 0-9 之间的整数`)
                     }
+                }
 
+                if (dumpAll) {
+                    const format = project.dumpOptions?.format
+                    if (format && format !== 'plain') {
+                        throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 全库备份（allDatabases）仅支持 plain 格式输出`)
+                    }
+
+                    if (compression !== undefined && compression > 0) {
+                        throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 全库备份（allDatabases）不支持内置压缩，请使用 compress.enabled 进行压缩`)
+                    }
+
+                    if (project.dumpOptions?.create) {
+                        throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL 全库备份（allDatabases）不需要配置 create，导出内容已包含 CREATE DATABASE`)
+                    }
+                } else if (compression !== undefined) {
                     if (compression > 0 && project.compress.enabled) {
                         throw new Error(`项目 "${project.name}" 配置错误: PostgreSQL dumpOptions.compression 与 compress.enabled 不能同时启用`)
                     }
