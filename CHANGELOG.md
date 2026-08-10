@@ -1,5 +1,12 @@
 # auto-backup-database
 
+# [1.6.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.4...v1.6.0) (2026-08-10)
+
+
+### ✨ 新功能
+
+* **backup:** 新增通用文件/文件夹备份模式 ([df7c3e2](https://github.com/CaoMeiYouRen/auto-backup-database/commit/df7c3e2))
+
 ## [1.5.3](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.5.2...v1.5.3) (2026-05-28)
 
 
