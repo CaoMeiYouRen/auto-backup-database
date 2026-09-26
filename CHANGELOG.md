@@ -1,5 +1,12 @@
 # auto-backup-database
 
+# [1.8.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.7.0...v1.8.0) (2026-09-26)
+
+
+### ✨ 新功能
+
+* **backup:** 增强备份服务的临时目录清理和备份集管理 ([d064dd4](https://github.com/CaoMeiYouRen/auto-backup-database/commit/d064dd4))
+
 # [1.7.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.6.0...v1.7.0) (2026-08-10)
 
 
