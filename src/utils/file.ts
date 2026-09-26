@@ -1,4 +1,5 @@
-import { extname } from 'node:path'
+import { lstat, readdir, rmdir, unlink } from 'node:fs/promises'
+import { extname, join } from 'node:path'
 
 /**
  * 根据文件名或路径获取 MIME 类型
@@ -28,4 +29,45 @@ export function getMimeType(filePath: string): string {
     }
 
     return mimeMap[ext] || 'application/octet-stream'
+}
+
+/**
+ * 递归删除文件或目录（逐个删除文件后自底向上删除目录，不依赖 shell 命令）
+ * @param targetPath 目标文件或目录路径，不存在时静默返回
+ */
+export async function removeRecursive(targetPath: string): Promise<void> {
+    let stats
+    try {
+        stats = await lstat(targetPath)
+    } catch {
+        return
+    }
+
+    if (stats.isDirectory()) {
+        const entries = await readdir(targetPath)
+        for (const entry of entries) {
+            await removeRecursive(join(targetPath, entry))
+        }
+        await rmdir(targetPath)
+        return
+    }
+
+    await unlink(targetPath)
+}
+
+/**
+ * 清空目录内容但保留目录本身
+ * @param dirPath 目录路径，不存在时静默返回
+ */
+export async function cleanDirectory(dirPath: string): Promise<void> {
+    let entries: string[]
+    try {
+        entries = await readdir(dirPath)
+    } catch {
+        return
+    }
+
+    for (const entry of entries) {
+        await removeRecursive(join(dirPath, entry))
+    }
 }

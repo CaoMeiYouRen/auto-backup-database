@@ -35,7 +35,7 @@ export { SQLiteProvider } from './providers/sqlite'
 export { FileProvider } from './providers/file'
 
 // 文件工具
-export { getMimeType } from './utils/file'
+export { getMimeType, removeRecursive, cleanDirectory } from './utils/file'
 
 // 压缩工具
 export { compress, compressMultiple, compressDirectory, isCompressedFile, DEFAULT_COMPRESSED_EXTENSIONS } from './utils/compress'
@@ -47,7 +47,7 @@ export type { EncryptResult, DecryptResult } from './utils/encrypt'
 
 // 本地存储
 export { LocalStorage } from './storage/local'
-export type { BackupFileInfo, CleanupResult, StorageStats } from './storage/local'
+export type { BackupFileInfo, BackupSetInfo, CleanupResult, StorageStats } from './storage/local'
 
 // OSS 存储
 export { OSSStorage } from './storage/oss'

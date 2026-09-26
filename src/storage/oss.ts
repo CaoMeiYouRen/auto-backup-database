@@ -1,11 +1,11 @@
-import { readFile, stat } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
 import { basename, join } from 'node:path'
 import {
     S3Client,
-    PutObjectCommand,
     ListObjectsV2Command,
     DeleteObjectCommand,
 } from '@aws-sdk/client-s3'
+import { Upload } from '@aws-sdk/lib-storage'
 import { parse } from 'better-bytes'
 import dayjs from 'dayjs'
 import { getMimeType } from '@/utils/file'
@@ -87,20 +87,23 @@ export class OSSStorage {
         const fileName = remoteKey || this.generateRemoteKey(basename(filePath))
 
         try {
-            const fileContent = await readFile(filePath)
-            const stats = await stat(filePath)
-
-            await this.client.send(
-                new PutObjectCommand({
+            // 流式分片上传，避免大文件整份读入内存
+            const upload = new Upload({
+                client: this.client,
+                params: {
                     Bucket: this.bucket,
                     Key: fileName,
-                    Body: fileContent,
-                    ContentLength: stats.size,
+                    Body: createReadStream(filePath),
                     ContentType: getMimeType(fileName),
                     // 设置为私有权限
                     ACL: 'private',
-                }),
-            )
+                },
+                queueSize: 4,
+                partSize: 8 * 1024 * 1024,
+                leavePartsOnError: false,
+            })
+
+            await upload.done()
 
             return {
                 key: fileName,

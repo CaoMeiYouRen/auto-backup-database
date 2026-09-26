@@ -1,5 +1,5 @@
 import { join, basename } from 'node:path'
-import { rm, copyFile, mkdir } from 'node:fs/promises'
+import { link, copyFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import Debug from 'debug'
 import dayjs from 'dayjs'
@@ -12,6 +12,7 @@ import { SQLiteProvider } from '@/providers/sqlite'
 import { FileProvider } from '@/providers/file'
 import { compressDirectory, isCompressedFile } from '@/utils/compress'
 import { encryptAndDelete } from '@/utils/encrypt'
+import { removeRecursive } from '@/utils/file'
 import { LocalStorage } from '@/storage/local'
 import { OSSStorage, type UploadResult } from '@/storage/oss'
 import { NotifyService } from '@/notify'
@@ -67,7 +68,10 @@ export class BackupService {
         }
 
         try {
-            // 1. 创建数据库提供者并执行备份
+            // 1. 先清理旧备份，为新备份腾出磁盘空间
+            await this.cleanupOldBackups(result, localBackupDir)
+
+            // 2. 创建数据库提供者并执行备份
             const provider = this.createProvider(project)
             const backupResult = await provider.backup(tempDir)
             result.backup = backupResult
@@ -80,7 +84,7 @@ export class BackupService {
 
             debug(`数据库备份完成，文件数: ${backupResult.backupFiles.length}`)
 
-            // 2. 压缩备份文件（若全部产物已为压缩格式则跳过）
+            // 3. 压缩备份文件（若全部产物已为压缩格式则跳过）
             if (project.compress.enabled) {
                 const backupDir = join(tempDir, project.name)
                 const backupFiles = backupResult.backupFiles
@@ -114,10 +118,13 @@ export class BackupService {
                     }
 
                     debug(`压缩完成: ${compressResult.compressedFile}`)
+
+                    // 压缩成功后立即删除原始备份文件，降低磁盘峰值占用
+                    await removeRecursive(backupDir)
                 }
             }
 
-            // 3. 加密（与压缩解耦：跳过压缩时对原始产物加密，否则对压缩产物加密）
+            // 4. 加密（与压缩解耦：跳过压缩时对原始产物加密，否则对压缩产物加密）
             if (project.compress.password) {
                 if (!fullConfig.security?.backupPassword) {
                     debug('加密失败: 配置了密码加密但未在配置中设置 security.backupPassword')
@@ -155,7 +162,7 @@ export class BackupService {
                 }
             }
 
-            // 4. 本地存储
+            // 5. 本地存储
             if (project.options.localEnabled) {
                 const localResult = await this.saveToLocal(result, localBackupDir)
                 result.localUpload = localResult
@@ -167,7 +174,7 @@ export class BackupService {
                 }
             }
 
-            // 5. 远程上传
+            // 6. 远程上传
             if (project.options.remoteEnabled) {
                 const remoteResult = await this.uploadToRemote(result)
                 result.remoteUpload = remoteResult
@@ -178,12 +185,6 @@ export class BackupService {
                     debug(`远程上传完成`)
                 }
             }
-
-            // 6. 清理旧备份
-            await this.cleanupOldBackups(result, localBackupDir)
-
-            // 7. 清理临时文件
-            await this.cleanupTempFiles(tempDir)
 
             // 判断整体成功
             result.overallSuccess = this.evaluateSuccess(result)
@@ -203,6 +204,9 @@ export class BackupService {
             result.backup.error = errorMessage
             await this.notifyFailed(result)
             return result
+        } finally {
+            // 无论成功失败都清理临时文件，避免残留占满磁盘
+            await this.cleanupTempFiles(tempDir)
         }
     }
 
@@ -287,7 +291,12 @@ export class BackupService {
 
             for (const artifactPath of artifactPaths) {
                 const destFile = join(destDir, basename(artifactPath))
-                await copyFile(artifactPath, destFile)
+                try {
+                    // 同盘时优先硬链接，避免大文件整份拷贝
+                    await link(artifactPath, destFile)
+                } catch {
+                    await copyFile(artifactPath, destFile)
+                }
             }
 
             return { success: true }
@@ -395,7 +404,7 @@ export class BackupService {
     private async cleanupTempFiles(tempDir: string): Promise<void> {
         try {
             if (existsSync(tempDir)) {
-                await rm(tempDir, { recursive: true, force: true })
+                await removeRecursive(tempDir)
             }
         } catch (error) {
             debug(`清理临时文件失败: ${error}`)

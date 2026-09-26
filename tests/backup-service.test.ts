@@ -486,4 +486,70 @@ describe('BackupService', () => {
         expect(result.overallSuccess).toBe(true)
         expect(OSSStorage.prototype.uploadFiles).toHaveBeenCalledTimes(1)
     })
+
+    it('备份失败时也应清理临时目录', async () => {
+        execFileMock.mockImplementation((file: string, args: string[], _options: unknown, callback: (...callbackArgs: unknown[]) => void) => {
+            if (args.includes('--version')) {
+                callback(null, `${file} version mock`, '')
+                return
+            }
+
+            const resultFileArg = args.find((arg) => arg.startsWith('--result-file='))
+            const outputPath = resultFileArg?.slice('--result-file='.length)
+            if (outputPath) {
+                mkdirSync(dirname(outputPath), { recursive: true })
+                writeFileSync(outputPath, 'partial-dump')
+            }
+            callback(new Error('mock dump failed'))
+        })
+
+        const project: MySQLProjectConfig = {
+            name: 'mysql-fail',
+            dbType: 'mysql',
+            connection: {
+                uri: 'mysql://root:secret@127.0.0.1:3306',
+                database: 'app',
+            },
+            dumpOptions: {
+                singleTransaction: true,
+            },
+            backupSchedule: '0 2 * * *',
+            compress: {
+                enabled: true,
+                password: false,
+            },
+            retention: {
+                local: {
+                    days: 30,
+                    maxSize: '10GB',
+                },
+                remote: {
+                    days: 30,
+                    maxSize: '10GB',
+                },
+            },
+            options: {
+                localEnabled: true,
+                remoteEnabled: false,
+            },
+        }
+
+        const tempDir = join(tempRoot, 'temp-mysql-fail')
+        const fullConfig: FullConfig = {
+            projects: [project],
+        }
+
+        const service = new BackupService({
+            project,
+            fullConfig,
+            localBackupDir,
+            tempDir,
+        })
+
+        const result = await service.run()
+
+        expect(result.backup.success).toBe(false)
+        expect(result.overallSuccess).toBe(false)
+        expect(existsSync(tempDir)).toBe(false)
+    })
 })

@@ -6,6 +6,7 @@ import { loadConfig } from '@/config/loader'
 import { SchedulerService } from '@/services/scheduler'
 import { BackupService } from '@/services/backup'
 import { NotifyService } from '@/notify'
+import { cleanDirectory } from '@/utils/file'
 
 // 启用 debug 日志
 Debug.enable('backup:*')
@@ -128,6 +129,14 @@ async function main(): Promise<void> {
         // 确保目录存在
         await mkdir(localBackupDir, { recursive: true })
         await mkdir(tempDir, { recursive: true })
+
+        // 清理历史残留的临时目录（如上次进程异常退出遗留）
+        try {
+            await cleanDirectory(tempDir)
+            debug('临时目录残留已清理')
+        } catch (error) {
+            debug('清理临时目录残留失败: %O', error)
+        }
 
         // 创建通知服务（如果配置了）
         let notifyService: NotifyService | undefined

@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readdirSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
@@ -127,6 +127,60 @@ describe('LocalStorage', () => {
 
             expect(result.success).toBe(true)
             expect(result.deletedFiles.length).toBeGreaterThan(0)
+        })
+
+        it('清理过期备份时应连同时间戳目录一起删除', async () => {
+            const setDir = join(storageDir, '2024-01-01_00-00-00_000')
+            mkdirSync(setDir, { recursive: true })
+            writeFileSync(join(setDir, 'backup.tar.gz'), 'content')
+
+            const expireRetention: RetentionConfig = {
+                days: -1,
+                maxSize: '100MB',
+            }
+
+            const storage = new LocalStorage(storageDir, expireRetention)
+            const result = await storage.cleanup()
+
+            expect(result.success).toBe(true)
+            expect(result.deletedFiles).toHaveLength(1)
+            expect(existsSync(setDir)).toBe(false)
+        })
+
+        it('按大小清理时应按备份集整体删除，不残留目录和部分文件', async () => {
+            const set1 = join(storageDir, '2024-01-01_00-00-00_000')
+            const set2 = join(storageDir, '2024-01-02_00-00-00_000')
+            mkdirSync(set1, { recursive: true })
+            writeFileSync(join(set1, 'a.tar.gz'), 'a'.repeat(100))
+            writeFileSync(join(set1, 'b.tar.gz'), 'b'.repeat(100))
+            await new Promise((r) => setTimeout(r, 15))
+            mkdirSync(set2, { recursive: true })
+            writeFileSync(join(set2, 'c.tar.gz'), 'c'.repeat(100))
+            writeFileSync(join(set2, 'd.tar.gz'), 'd'.repeat(100))
+
+            const smallRetention: RetentionConfig = {
+                days: 30,
+                maxSize: '250B',
+            }
+
+            const storage = new LocalStorage(storageDir, smallRetention)
+            const result = await storage.cleanup()
+
+            expect(result.success).toBe(true)
+            expect(existsSync(set1)).toBe(false)
+            expect(existsSync(set2)).toBe(true)
+            expect(readdirSync(set2).sort()).toEqual(['c.tar.gz', 'd.tar.gz'])
+        })
+
+        it('应删除空的备份目录', async () => {
+            const emptyDir = join(storageDir, '2024-01-01_00-00-00_000')
+            mkdirSync(emptyDir, { recursive: true })
+
+            const storage = new LocalStorage(storageDir, retention)
+            const result = await storage.cleanup()
+
+            expect(result.success).toBe(true)
+            expect(existsSync(emptyDir)).toBe(false)
         })
     })
 
