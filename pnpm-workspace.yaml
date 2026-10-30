@@ -25,3 +25,4 @@ overrides:
   diff: ^5.2.2
   glob: ^13.0.6
   js-yaml: ^4.3.0
+  "@vitest/mocker": ^5.0.3
