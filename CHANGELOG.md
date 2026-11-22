@@ -1,5 +1,12 @@
 # auto-backup-database
 
+## [1.9.1](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.9.0...v1.9.1) (2026-11-22)
+
+
+### 🐛 Bug 修复
+
+* **deps:** 修复 glob 与 nodemailer 依赖安全告警 ([16224bb](https://github.com/CaoMeiYouRen/auto-backup-database/commit/16224bb))
+
 # [1.9.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.8.0...v1.9.0) (2026-11-22)
 
 
