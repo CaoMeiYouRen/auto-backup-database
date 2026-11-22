@@ -13,6 +13,7 @@ import { FileProvider } from '@/providers/file'
 import { compressDirectory, isCompressedFile } from '@/utils/compress'
 import { encryptAndDelete } from '@/utils/encrypt'
 import { removeRecursive } from '@/utils/file'
+import { formatDuration } from '@/utils/time'
 import { LocalStorage } from '@/storage/local'
 import { OSSStorage, type UploadResult } from '@/storage/oss'
 import { NotifyService } from '@/notify'
@@ -54,6 +55,8 @@ export class BackupService {
      */
     async run(): Promise<BackupTaskResult> {
         const { project, fullConfig, localBackupDir, tempDir } = this.config
+        const taskStartedAt = Date.now()
+        const stageTimings: string[] = []
         debug(`开始备份项目: ${project.name}`)
 
         const result: BackupTaskResult = {
@@ -69,11 +72,15 @@ export class BackupService {
 
         try {
             // 1. 先清理旧备份，为新备份腾出磁盘空间
+            const cleanupStartedAt = Date.now()
             await this.cleanupOldBackups(result, localBackupDir)
+            this.recordStage(stageTimings, '清理旧备份', cleanupStartedAt)
 
             // 2. 创建数据库提供者并执行备份
             const provider = this.createProvider(project)
+            const backupStartedAt = Date.now()
             const backupResult = await provider.backup(tempDir)
+            this.recordStage(stageTimings, '数据库备份', backupStartedAt)
             result.backup = backupResult
 
             if (!backupResult.success) {
@@ -101,7 +108,9 @@ export class BackupService {
                     }
                     debug('备份产物已全部为压缩格式，跳过压缩')
                 } else {
+                    const compressStartedAt = Date.now()
                     const compressResult = await compressDirectory(backupDir, join(tempDir, `${project.name}-backup`))
+                    this.recordStage(stageTimings, '压缩', compressStartedAt)
 
                     result.compress = {
                         success: compressResult.success,
@@ -137,7 +146,9 @@ export class BackupService {
                         ? [result.compress.compressedFile]
                         : backupResult.backupFiles
 
+                    const encryptStartedAt = Date.now()
                     const encryptResult = await this.encryptFiles(encryptTargets, fullConfig.security.backupPassword)
+                    this.recordStage(stageTimings, '加密', encryptStartedAt)
 
                     result.encrypt = {
                         success: encryptResult.success,
@@ -164,7 +175,9 @@ export class BackupService {
 
             // 5. 本地存储
             if (project.options.localEnabled) {
+                const localStartedAt = Date.now()
                 const localResult = await this.saveToLocal(result, localBackupDir)
+                this.recordStage(stageTimings, '本地存储', localStartedAt)
                 result.localUpload = localResult
 
                 if (!localResult.success) {
@@ -176,7 +189,9 @@ export class BackupService {
 
             // 6. 远程上传
             if (project.options.remoteEnabled) {
+                const remoteStartedAt = Date.now()
                 const remoteResult = await this.uploadToRemote(result)
+                this.recordStage(stageTimings, '远程上传', remoteStartedAt)
                 result.remoteUpload = remoteResult
 
                 if (!remoteResult.success) {
@@ -206,8 +221,18 @@ export class BackupService {
             return result
         } finally {
             // 无论成功失败都清理临时文件，避免残留占满磁盘
+            const cleanTempStartedAt = Date.now()
             await this.cleanupTempFiles(tempDir)
+            this.recordStage(stageTimings, '清理临时文件', cleanTempStartedAt)
+            debug(`备份阶段耗时: ${stageTimings.join(', ')}, 总计: ${formatDuration(Date.now() - taskStartedAt)}`)
         }
+    }
+
+    /**
+     * 记录单个阶段的耗时
+     */
+    private recordStage(timings: string[], name: string, startedAt: number): void {
+        timings.push(`${name}=${formatDuration(Date.now() - startedAt)}`)
     }
 
     /**

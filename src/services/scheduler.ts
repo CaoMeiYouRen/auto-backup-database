@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { CronJob } from 'cron'
 import Debug from 'debug'
 import { BackupService } from './backup'
+import { formatDuration } from '@/utils/time'
 import type { FullConfig, ProjectConfig } from '@/types/config'
 import type { NotifyService } from '@/notify'
 import type { BackupTaskResult } from '@/types/backup'
@@ -138,6 +139,7 @@ export class SchedulerService {
         }
 
         status.isRunning = true
+        const startedAt = Date.now()
         debug(`开始执行备份任务: ${project.name}`)
 
         try {
@@ -154,9 +156,9 @@ export class SchedulerService {
             status.lastRunTime = new Date()
             status.lastResult = result
 
-            debug(`备份任务完成: ${project.name}, 成功: ${result.overallSuccess}`)
+            debug(`备份任务完成: ${project.name}, 成功: ${result.overallSuccess}, 耗时: ${formatDuration(Date.now() - startedAt)}`)
         } catch (error) {
-            debug(`备份任务异常: ${project.name}, 错误: ${error}`)
+            debug(`备份任务异常: ${project.name}, 错误: ${error}, 耗时: ${formatDuration(Date.now() - startedAt)}`)
             status.lastRunTime = new Date()
         } finally {
             status.isRunning = false

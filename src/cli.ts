@@ -7,6 +7,7 @@ import { SchedulerService } from '@/services/scheduler'
 import { BackupService } from '@/services/backup'
 import { NotifyService } from '@/notify'
 import { cleanDirectory } from '@/utils/file'
+import { formatDuration } from '@/utils/time'
 
 // 启用 debug 日志
 Debug.enable('backup:*')
@@ -184,6 +185,7 @@ async function runOnce(
 
     let successCount = 0
     let failCount = 0
+    const totalStartedAt = Date.now()
 
     for (const project of projects) {
         console.log(`\n开始备份: ${project.name}`)
@@ -196,21 +198,23 @@ async function runOnce(
             notifyService,
         })
 
+        const projectStartedAt = Date.now()
         const result = await backupService.run()
+        const projectCost = formatDuration(Date.now() - projectStartedAt)
 
         if (result.overallSuccess) {
             successCount++
-            console.log(`✓ 备份成功: ${project.name}`)
+            console.log(`✓ 备份成功: ${project.name} (耗时 ${projectCost})`)
         } else {
             failCount++
-            console.error(`✗ 备份失败: ${project.name}`)
+            console.error(`✗ 备份失败: ${project.name} (耗时 ${projectCost})`)
             if (result.backup.error) {
                 console.error(`  错误: ${result.backup.error}`)
             }
         }
     }
 
-    console.log(`\n执行完成: 成功 ${successCount}, 失败 ${failCount}`)
+    console.log(`\n执行完成: 成功 ${successCount}, 失败 ${failCount}, 总耗时 ${formatDuration(Date.now() - totalStartedAt)}`)
 
     if (failCount > 0) {
         exit(1)
