@@ -1,5 +1,12 @@
 # auto-backup-database
 
+# [1.9.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.8.0...v1.9.0) (2026-11-22)
+
+
+### ✨ 新功能
+
+* **backup:** 补充备份任务各阶段耗时日志 ([b50e235](https://github.com/CaoMeiYouRen/auto-backup-database/commit/b50e235))
+
 # [1.8.0](https://github.com/CaoMeiYouRen/auto-backup-database/compare/v1.7.0...v1.8.0) (2026-09-26)
 
 
